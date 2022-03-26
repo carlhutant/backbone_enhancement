@@ -5,6 +5,7 @@ import random
 import shutil
 import time
 import warnings
+import configure
 from enum import Enum
 
 import numpy as np
@@ -311,7 +312,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'best_acc1': best_acc1,
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict()
-            }, is_best)
+            }, is_best, '{:03d}'.format(epoch))
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -432,7 +433,8 @@ def validate(val_loader, model, criterion, args):
     return top1.avg
 
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+def save_checkpoint(state, is_best, epoch):
+    filename = configure.model_dir + '/torch/checkpoint_epoch' + epoch + '.pth.tar'
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
