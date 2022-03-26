@@ -21,6 +21,7 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
+from tqdm import trange
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -317,9 +318,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
-    top1 = AverageMeter('accuracy', ':6.2f')
+    top1 = AverageMeter('accuracy', ':.2f')
     # top1 = AverageMeter('Acc@1', ':6.2f')
-    top5 = AverageMeter('Acc@5', ':6.2f')
+    # top5 = AverageMeter('Acc@5', ':6.2f')
     progress = ProgressMeter(
         len(train_loader),
         [
@@ -329,12 +330,15 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
             top1,
             # top5
         ],
-        prefix="Epoch {}".format(epoch))
+        # prefix="Epoch {}".format(epoch)
+    )
 
     # switch to train mode
     model.train()
 
     end = time.time()
+    tqdm_control = trange(len(train_loader), desc='Epoch {} train: '.format(epoch), leave=True, ascii='->=',
+                          bar_format='{desc}{n}/{total}[{bar:30}]{percentage:3.0f}% - {elapsed}{postfix}')
     for i, (images, target) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
@@ -363,32 +367,38 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0:
-            progress.display(i)
+        # if i % args.print_freq == 0:
+        #     progress.display(i)
+        tqdm_control.set_postfix_str(progress.display(i) + '%')
+        tqdm_control.update(1)
+        tqdm_control.refresh()
     # progress.display(len(train_loader))
+    del tqdm_control
 
 
 def validate(val_loader, model, criterion, args):
     batch_time = AverageMeter('Time', ':6.3f', Summary.NONE)
     losses = AverageMeter('Loss', ':.4e', Summary.NONE)
-    top1 = AverageMeter('accuracy', ':6.2f', Summary.AVERAGE)
+    top1 = AverageMeter('accuracy', ':.2f', Summary.AVERAGE)
     # top1 = AverageMeter('Acc@1', ':6.2f', Summary.AVERAGE)
     # top5 = AverageMeter('Acc@5', ':6.2f', Summary.AVERAGE)
     progress = ProgressMeter(
         len(val_loader),
         [
-            batch_time,
+            # batch_time,
             losses,
             top1,
             # top5
         ],
-        prefix='Test: ')
+        # prefix='Test: '
+    )
 
     # switch to evaluate mode
     model.eval()
-
     with torch.no_grad():
         end = time.time()
+        tqdm_control = trange(len(val_loader), desc='\t\tvalidation: ', leave=True, ascii='->=',
+                              bar_format='{desc}{n}/{total}[{bar:30}]{percentage:3.0f}% - {elapsed}{postfix}')
         for i, (images, target) in enumerate(val_loader):
             if args.gpu is not None:
                 images = images.cuda(args.gpu, non_blocking=True)
@@ -412,7 +422,12 @@ def validate(val_loader, model, criterion, args):
             # if i % args.print_freq == 0:
             #     progress.display(i)
         # progress.display(len(val_loader))
-        progress.display_summary()
+        # progress.display_summary()
+
+            tqdm_control.set_postfix_str(progress.display(i) + '%')
+            tqdm_control.update(1)
+            tqdm_control.refresh()
+        del tqdm_control
 
     return top1.avg
 
@@ -453,7 +468,7 @@ class AverageMeter(object):
 
     def __str__(self):
         # fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
-        fmtstr = '{name} {avg' + self.fmt + '}'
+        fmtstr = '{name}: {avg' + self.fmt + '}'
         return fmtstr.format(**self.__dict__)
 
     def summary(self):
@@ -480,14 +495,15 @@ class ProgressMeter(object):
 
     def display(self, batch):
         # entries = [self.prefix + self.batch_fmtstr.format(batch)]
-        entries = [self.prefix]
-        entries += [str(meter) for meter in self.meters]
-        print('\t'.join(entries))
+        entries = self.prefix
+        for meter in self.meters:
+            entries += ' - ' + str(meter)
+        return str(entries)
 
     def display_summary(self):
         entries = [" *"]
         entries += [meter.summary() for meter in self.meters]
-        print(' '.join(entries))
+        return str(entries)
 
     def _get_batch_fmtstr(self, num_batches):
         num_digits = len(str(num_batches // 1))
