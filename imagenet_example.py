@@ -337,7 +337,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     model.train()
 
     end = time.time()
-    tqdm_control = trange(len(train_loader), desc='Epoch {} train: '.format(epoch), leave=True, ascii='->=',
+    tqdm_control = trange(len(train_loader), desc='Epoch {} train: '.format(epoch), leave=True, ascii='->>',
                           bar_format='{desc}{n}/{total}[{bar:30}]{percentage:3.0f}% - {elapsed}{postfix}')
     for i, (images, target) in enumerate(train_loader):
         # measure data loading time
@@ -397,7 +397,7 @@ def validate(val_loader, model, criterion, args):
     model.eval()
     with torch.no_grad():
         end = time.time()
-        tqdm_control = trange(len(val_loader), desc='\t\tvalidation: ', leave=True, ascii='->=',
+        tqdm_control = trange(len(val_loader), desc='\t\tvalidation: ', leave=True, ascii='->>',
                               bar_format='{desc}{n}/{total}[{bar:30}]{percentage:3.0f}% - {elapsed}{postfix}')
         for i, (images, target) in enumerate(val_loader):
             if args.gpu is not None:
