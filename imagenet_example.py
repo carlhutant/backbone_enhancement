@@ -297,8 +297,6 @@ def main_worker(gpu, ngpus_per_node, args):
         # evaluate on validation set
         acc1 = validate(val_loader, model, criterion, args)
 
-        scheduler.step()
-
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
@@ -358,8 +356,9 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if i % args.print_freq == 0:
-            progress.display(i)
+        # if i % args.print_freq == 0:
+        #     progress.display(i)
+    progress.display(len(train_loader))
 
 
 def validate(val_loader, model, criterion, args):
@@ -397,9 +396,9 @@ def validate(val_loader, model, criterion, args):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            if i % args.print_freq == 0:
-                progress.display(i)
-
+            # if i % args.print_freq == 0:
+            #     progress.display(i)
+        progress.display(len(val_loader))
         progress.display_summary()
 
     return top1.avg
