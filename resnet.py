@@ -129,7 +129,7 @@ def main_worker():
     train_dataset = datasets.ImageFolder(
         traindir,
         transforms.Compose([
-            transforms.CenterCrop(224),
+            # transforms.CenterCrop(224),
             transforms.RandomResizedCrop(size=224, scale=(224.0/480.0, 224.0/256.0), ratio=(1, 1)),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
