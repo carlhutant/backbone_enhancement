@@ -1,20 +1,18 @@
 import argparse
 import os
-import cv2
 import random
 import shutil
 import time
 import warnings
 from enum import Enum
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.optim
-from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
+from torch.optim.lr_scheduler import StepLR
 import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
@@ -178,10 +176,8 @@ def main_worker(gpu, ngpus_per_node, args):
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
 
-    # LR scheduler
-    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10, threshold=0.01, verbose=True)
-    # Sets the learning rate to the initial LR decayed by 10 every 30 epochs
-    # scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+    scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -209,28 +205,16 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    train_dir = os.path.join(args.data, 'train')
-    val_dir = os.path.join(args.data, 'val')
+    traindir = os.path.join(args.data, 'train')
+    valdir = os.path.join(args.data, 'val')
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
     train_dataset = datasets.ImageFolder(
-        train_dir,
+        traindir,
         transforms.Compose([
-            # size是(高, 寬), scale是指面積占比, ratio是寬/高
-            transforms.RandomResizedCrop(size=224, scale=(0.125, 0.9), ratio=(1, 1)),
-            # transforms.RandomResizedCrop(size=(224, 448), scale=(0.5, 0.5), ratio=(2, 2)),
+            transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ]))
-
-    val_dataset = datasets.ImageFolder(
-        val_dir,
-        transforms.Compose([
-            transforms.RandomResizedCrop(size=224, scale=(0.125, 0.9), ratio=(1, 1)),
-            # transforms.Resize(256),
-            # transforms.CenterCrop(224),
             transforms.ToTensor(),
             normalize,
         ]))
@@ -241,47 +225,18 @@ def main_worker(gpu, ngpus_per_node, args):
         train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=args.batch_size,
-        # shuffle=False,
-        shuffle=(train_sampler is None),
-        num_workers=args.workers,
-        pin_memory=True,
-        sampler=train_sampler
-    )
+        train_dataset, batch_size=args.batch_size, shuffle=(train_sampler is None),
+        num_workers=args.workers, pin_memory=True, sampler=train_sampler)
 
     val_loader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.workers,
-        pin_memory=True
-    )
-
-    # visualizing train_loader
-    # batch_count = 0
-    # for batch_instance in iter(train_loader):
-    #     instance_count = 0
-    #     for instance_No in range(args.batch_size):
-    #         (image_tensor, label_tensor) = (batch_instance[0][instance_No], batch_instance[1][instance_No])
-    #         channel_first_image = np.array(image_tensor, dtype=float)
-    #         channel_r = channel_first_image[0, ..., np.newaxis] * 255
-    #         channel_g = channel_first_image[1, ..., np.newaxis] * 255
-    #         channel_b = channel_first_image[2, ..., np.newaxis] * 255
-    #         image = np.concatenate((channel_r, channel_g, channel_b), axis=-1)
-    #         image = np.array(image, dtype=np.uint8)
-    #         label = label_tensor.item()
-    #         print(
-    #             'batch_count={0:05d}'.format(batch_count),
-    #             'instance_count={0:05d}'.format(instance_count),
-    #             'label:{}'.format(label)
-    #         )
-    #         # image cv2 show
-    #         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-    #         cv2.imshow('image', image)
-    #         cv2.waitKey()
-    #         instance_count += 1
-    #     batch_instance += 1
+        datasets.ImageFolder(valdir, transforms.Compose([
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize,
+        ])),
+        batch_size=args.batch_size, shuffle=False,
+        num_workers=args.workers, pin_memory=True)
 
     if args.evaluate:
         validate(val_loader, model, criterion, args)
@@ -296,6 +251,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
         # evaluate on validation set
         acc1 = validate(val_loader, model, criterion, args)
+
+        scheduler.step()
 
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
@@ -356,9 +313,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         batch_time.update(time.time() - end)
         end = time.time()
 
-        # if i % args.print_freq == 0:
-        #     progress.display(i)
-    progress.display(len(train_loader))
+        if i % args.print_freq == 0:
+            progress.display(i)
 
 
 def validate(val_loader, model, criterion, args):
@@ -396,9 +352,9 @@ def validate(val_loader, model, criterion, args):
             batch_time.update(time.time() - end)
             end = time.time()
 
-            # if i % args.print_freq == 0:
-            #     progress.display(i)
-        progress.display(len(val_loader))
+            if i % args.print_freq == 0:
+                progress.display(i)
+
         progress.display_summary()
 
     return top1.avg
