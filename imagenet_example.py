@@ -434,10 +434,11 @@ def validate(val_loader, model, criterion, args):
 
 
 def save_checkpoint(state, is_best, epoch):
-    filename = configure.model_dir + '/torch/checkpoint_epoch' + epoch + '.pth.tar'
-    torch.save(state, filename)
+    checkpoint_dir = configure.model_dir + '/torch/'
+    filename = 'checkpoint_epoch' + epoch + '.pth.tar'
+    torch.save(state, checkpoint_dir + filename)
     if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
+        shutil.copyfile(checkpoint_dir + filename, checkpoint_dir + 'model_best.pth.tar')
 
 
 class Summary(Enum):
