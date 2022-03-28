@@ -6,6 +6,7 @@ import shutil
 import time
 import warnings
 import configure
+import log_record
 from enum import Enum
 
 import numpy as np
@@ -289,15 +290,16 @@ def main_worker(gpu, ngpus_per_node, args):
         validate(val_loader, model, criterion, args)
         return
 
+    log_rec = log_record.LogRecoder()
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch, args)
+        train(train_loader, model, criterion, optimizer, epoch, log_rec, args)
 
         # evaluate on validation set
-        acc1 = validate(val_loader, model, criterion, args)
+        acc1 = validate(val_loader, model, criterion, log_rec, args)
 
         scheduler.step(acc1)
 
@@ -317,7 +319,7 @@ def main_worker(gpu, ngpus_per_node, args):
             }, is_best, '{:03d}'.format(epoch))
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args):
+def train(train_loader, model, criterion, optimizer, epoch, log_rec, args):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.4e')
@@ -372,6 +374,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 
         # if i % args.print_freq == 0:
         #     progress.display(i)
+        if i == len(train_loader) - 1:
+            log_rec.write('Epoch {} train: '.format(epoch) + progress.display(i) + '%')
         tqdm_control.set_postfix_str(progress.display(i) + '%')
         tqdm_control.update(1)
         tqdm_control.refresh()
@@ -379,7 +383,7 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     del tqdm_control
 
 
-def validate(val_loader, model, criterion, args):
+def validate(val_loader, model, criterion, log_rec, args):
     batch_time = AverageMeter('Time', ':6.3f', Summary.NONE)
     losses = AverageMeter('Loss', ':.4e', Summary.NONE)
     top1 = AverageMeter('accuracy', ':.2f', Summary.AVERAGE)
@@ -426,7 +430,8 @@ def validate(val_loader, model, criterion, args):
             #     progress.display(i)
         # progress.display(len(val_loader))
         # progress.display_summary()
-
+            if i == len(val_loader) - 1:
+                log_rec.write('\t\tvalidation: ' + progress.display(i) + '%')
             tqdm_control.set_postfix_str(progress.display(i) + '%')
             tqdm_control.update(1)
             tqdm_control.refresh()
