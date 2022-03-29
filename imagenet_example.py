@@ -7,6 +7,7 @@ import time
 import warnings
 import configure
 import log_record
+import data_argumentation
 from enum import Enum
 
 import numpy as np
@@ -214,27 +215,31 @@ def main_worker(gpu, ngpus_per_node, args):
     # Data loading code
     train_dir = os.path.join(args.data, 'train')
     val_dir = os.path.join(args.data, 'val')
+    # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+    #                                  std=[0.229, 0.224, 0.225])
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
     train_dataset = datasets.ImageFolder(
         train_dir,
         transforms.Compose([
-            # size是(高, 寬), scale是指面積占比, ratio是寬/高
-            transforms.RandomResizedCrop(size=224, scale=(0.125, 0.9), ratio=(1, 1)),
-            # transforms.RandomResizedCrop(size=(224, 448), scale=(0.5, 0.5), ratio=(2, 2)),
-            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            normalize,
+            # size是(高, 寬), scale是指面積占比, ratio是寬/高
+            transforms.RandomResizedCrop(size=224 + 2, scale=(0.125, 0.9), ratio=(1, 1)),
+            data_argumentation.ColorDiff121abs3ch(),
+            # transforms.RandomResizedCrop(size=(224, 448), scale=(0.5, 0.5), ratio=(2, 2)),
+            # transforms.RandomHorizontalFlip(),
+            # normalize,
         ]))
 
     val_dataset = datasets.ImageFolder(
         val_dir,
         transforms.Compose([
-            transforms.RandomResizedCrop(size=224, scale=(0.125, 0.9), ratio=(1, 1)),
+            transforms.ToTensor(),
+            transforms.RandomResizedCrop(size=224 + 2, scale=(0.125, 0.9), ratio=(1, 1)),
+            data_argumentation.ColorDiff121abs3ch(),
             # transforms.Resize(256),
             # transforms.CenterCrop(224),
-            transforms.ToTensor(),
             normalize,
         ]))
 
@@ -284,7 +289,7 @@ def main_worker(gpu, ngpus_per_node, args):
     #         cv2.imshow('image', image)
     #         cv2.waitKey()
     #         instance_count += 1
-    #     batch_instance += 1
+    #     batch_count += 1
 
     if args.evaluate:
         validate(val_loader, model, criterion, args)
