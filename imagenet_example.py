@@ -222,7 +222,7 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    train_dir = os.path.join(configure.data_dir, 'val')
+    train_dir = os.path.join(configure.data_dir, 'train')
     val_dir = os.path.join(configure.data_dir, 'val')
     # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
     #                                  std=[0.229, 0.224, 0.225])
@@ -309,7 +309,7 @@ def main_worker(gpu, ngpus_per_node, args):
     #         instance_count += 1
     #     batch_count += 1
 
-    log_rec = log_record.LogRecoder()
+    log_rec = log_record.LogRecoder(configure.resume_ckpt_path is not None)
 
     if configure.evaluate_only:
         validate(val_loader, model, criterion, log_rec)

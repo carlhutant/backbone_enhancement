@@ -3,8 +3,8 @@ import os
 
 
 class LogRecoder:
-    def __init__(self):
-        if os.path.exists(configure.ckpt_dir + 'log.txt'):
+    def __init__(self, resume):
+        if os.path.exists(configure.ckpt_dir + 'log.txt') and not resume:
             raise RuntimeError
         else:
             pass
