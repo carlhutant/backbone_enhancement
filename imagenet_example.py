@@ -141,8 +141,8 @@ def main_worker(gpu, ngpus_per_node, args):
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
     # create model
-    if args.arch.startswith('diy_'):
-        if args.arch == 'diy_resnet50':
+    if args.arch.startswith('resnet'):
+        if args.arch == 'resnet50':
             model = ResNet.resnet50()
         else:
             raise RuntimeError
