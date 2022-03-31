@@ -30,35 +30,35 @@ model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
                      and callable(models.__dict__[name]))
 
-parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
+parser = argparse.ArgumentParser(description='PyTorch Backbone Training')
 parser.add_argument('--data', metavar='DIR', default=configure.data_dir,
                     help='path to dataset (default: imagenet)')
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
+parser.add_argument('-a', '--arch', metavar='ARCH', default=configure.model1,
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet18)')
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=configure.data_loader_worker, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
-parser.add_argument('--epochs', default=90, type=int, metavar='N',
+parser.add_argument('--epochs', default=configure.epochs, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
-parser.add_argument('-b', '--batch-size', default=256, type=int,
+parser.add_argument('-b', '--batch-size', default=configure.train_batch_size, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
                          'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=0.1, type=float,
+parser.add_argument('--lr', '--learning-rate', default=configure.lr, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
-parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
+parser.add_argument('--momentum', default=configure.momentum, type=float, metavar='M',
                     help='momentum')
-parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
+parser.add_argument('--wd', '--weight-decay', default=configure.weight_decay, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
                     dest='weight_decay')
 parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
+parser.add_argument('--resume', default=configure.resume_ckpt_path, type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
@@ -72,9 +72,9 @@ parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,
                     help='url used to set up distributed training')
 parser.add_argument('--dist-backend', default='nccl', type=str,
                     help='distributed backend')
-parser.add_argument('--seed', default=None, type=int,
+parser.add_argument('--seed', default=configure.random_seed, type=int,
                     help='seed for initializing training. ')
-parser.add_argument('--gpu', default=None, type=int,
+parser.add_argument('--gpu', default=configure.specified_GPU_ID, type=int,
                     help='GPU id to use.')
 parser.add_argument('--multiprocessing-distributed', action='store_true',
                     help='Use multi-processing distributed training to launch '
@@ -118,6 +118,8 @@ def main():
     else:
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
+
+    main_worker(args.gpu, ngpus_per_node, args)
 
 
 def main_worker(gpu, ngpus_per_node, args):
@@ -183,7 +185,11 @@ def main_worker(gpu, ngpus_per_node, args):
                                 weight_decay=args.weight_decay)
 
     # LR scheduler
-    scheduler = ReduceLROnPlateau(optimizer, mode='max', factor=0.1, patience=10, threshold=0.01, verbose=True)
+    scheduler = ReduceLROnPlateau(optimizer, mode='max',
+                                  factor=configure.factor,
+                                  patience=configure.patience,
+                                  threshold=configure.threshold,
+                                  verbose=True)
     # Sets the learning rate to the initial LR decayed by 10 every 30 epochs
     # scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
 
@@ -208,35 +214,44 @@ def main_worker(gpu, ngpus_per_node, args):
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(args.resume, checkpoint['epoch']))
         else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
+            print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path))
 
     cudnn.benchmark = True
 
     # Data loading code
-    train_dir = os.path.join(args.data, 'train')
-    val_dir = os.path.join(args.data, 'val')
+    traindir = os.path.join(args.data, 'train')
+    valdir = os.path.join(args.data, 'val')
     # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
     #                                  std=[0.229, 0.224, 0.225])
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    if configure.data_advance == 'none':
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
+    else:
+        raise RuntimeError
 
     train_dataset = datasets.ImageFolder(
-        train_dir,
+        traindir,
         transforms.Compose([
             transforms.ToTensor(),
             # size是(高, 寬), scale是指面積占比, ratio是寬/高
-            transforms.RandomResizedCrop(size=224 + 2, scale=(0.125, 0.9), ratio=(1, 1)),
+            transforms.RandomResizedCrop(size=(configure.train_crop_h + 2, configure.train_crop_w + 2),
+                                         scale=(configure.train_resize_area_ratio_min,
+                                                configure.train_resize_area_ratio_max),
+                                         ratio=(configure.train_crop_ratio, configure.train_crop_ratio)),
             # data_argumentation.ColorDiff121abs3ch(),
             # transforms.RandomResizedCrop(size=(224, 448), scale=(0.5, 0.5), ratio=(2, 2)),
-            # transforms.RandomHorizontalFlip(),
-            # normalize,
+            transforms.RandomHorizontalFlip(),
+            normalize,
         ]))
 
     val_dataset = datasets.ImageFolder(
-        val_dir,
+        valdir,
         transforms.Compose([
             transforms.ToTensor(),
-            transforms.RandomResizedCrop(size=224 + 2, scale=(0.125, 0.9), ratio=(1, 1)),
+            transforms.RandomResizedCrop(size=(configure.val_crop_h + 2, configure.val_crop_w + 2),
+                                         scale=(configure.val_resize_area_ratio_min,
+                                                configure.val_resize_area_ratio_max),
+                                         ratio=(configure.val_crop_ratio, configure.val_crop_ratio)),
             # data_argumentation.ColorDiff121abs3ch(),
             # transforms.Resize(256),
             # transforms.CenterCrop(224),
@@ -247,11 +262,11 @@ def main_worker(gpu, ngpus_per_node, args):
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
     else:
         train_sampler = None
+    # train_sampler = None
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=args.batch_size,
-        # shuffle=False,
         shuffle=(train_sampler is None),
         num_workers=args.workers,
         pin_memory=True,
@@ -267,35 +282,36 @@ def main_worker(gpu, ngpus_per_node, args):
     )
 
     # visualizing train_loader
-    batch_count = 0
-    for batch_instance in iter(train_loader):
-        instance_count = 0
-        for instance_No in range(args.batch_size):
-            (image_tensor, label_tensor) = (batch_instance[0][instance_No], batch_instance[1][instance_No])
-            channel_first_image = np.array(image_tensor, dtype=float)
-            channel_r = channel_first_image[0, ..., np.newaxis] * 255
-            channel_g = channel_first_image[1, ..., np.newaxis] * 255
-            channel_b = channel_first_image[2, ..., np.newaxis] * 255
-            image = np.concatenate((channel_r, channel_g, channel_b), axis=-1)
-            image = np.array(image, dtype=np.uint8)
-            label = label_tensor.item()
-            print(
-                'batch_count={0:05d}'.format(batch_count),
-                'instance_count={0:05d}'.format(instance_count),
-                'label:{}'.format(label)
-            )
-            # image cv2 show
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            cv2.imshow('image', image)
-            cv2.waitKey()
-            instance_count += 1
-        batch_count += 1
+    # batch_count = 0
+    # for batch_instance in iter(train_loader):
+    #     instance_count = 0
+    #     for instance_No in range(args.batch_size):
+    #         (image_tensor, label_tensor) = (batch_instance[0][instance_No], batch_instance[1][instance_No])
+    #         channel_first_image = np.array(image_tensor, dtype=float)
+    #         channel_r = channel_first_image[0, ..., np.newaxis] * 255
+    #         channel_g = channel_first_image[1, ..., np.newaxis] * 255
+    #         channel_b = channel_first_image[2, ..., np.newaxis] * 255
+    #         image = np.concatenate((channel_r, channel_g, channel_b), axis=-1)
+    #         image = np.array(image, dtype=np.uint8)
+    #         label = label_tensor.item()
+    #         print(
+    #             'batch_count={0:05d}'.format(batch_count),
+    #             'instance_count={0:05d}'.format(instance_count),
+    #             'label:{}'.format(label)
+    #         )
+    #         # image cv2 show
+    #         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+    #         cv2.imshow('image', image)
+    #         cv2.waitKey()
+    #         instance_count += 1
+    #     batch_count += 1
+
+    log_rec = log_record.LogRecoder(args.resume != '')
 
     if args.evaluate:
-        validate(val_loader, model, criterion, args)
+        validate(val_loader, model, criterion, log_rec, args)
         return
 
-    log_rec = log_record.LogRecoder(False)
     for epoch in range(args.start_epoch, args.epochs):
         if args.distributed:
             train_sampler.set_epoch(epoch)
@@ -321,7 +337,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'best_acc1': best_acc1,
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict()
-            }, is_best, '{:03d}'.format(epoch))
+            }, is_best, '{:03d}'.format(epoch + 1))
 
 
 def train(train_loader, model, criterion, optimizer, epoch, log_rec, args):
@@ -347,7 +363,7 @@ def train(train_loader, model, criterion, optimizer, epoch, log_rec, args):
     model.train()
 
     end = time.time()
-    tqdm_control = trange(len(train_loader), desc='Epoch {} train: '.format(epoch), leave=True, ascii='->>',
+    tqdm_control = trange(len(train_loader), desc='Epoch {} train: '.format(epoch + 1), leave=True, ascii='->>',
                           bar_format='{desc}{n}/{total}[{bar:30}]{percentage:3.0f}% - {elapsed}{postfix}')
     for i, (images, target) in enumerate(train_loader):
         # measure data loading time
@@ -380,7 +396,7 @@ def train(train_loader, model, criterion, optimizer, epoch, log_rec, args):
         # if i % args.print_freq == 0:
         #     progress.display(i)
         if i == len(train_loader) - 1:
-            log_rec.write('Epoch {} train: '.format(epoch) + progress.display(i) + '%')
+            log_rec.write('Epoch {} train: '.format(epoch + 1) + progress.display(i) + '%')
         tqdm_control.set_postfix_str(progress.display(i) + '%')
         tqdm_control.update(1)
         tqdm_control.refresh()
@@ -446,11 +462,10 @@ def validate(val_loader, model, criterion, log_rec, args):
 
 
 def save_checkpoint(state, is_best, epoch):
-    checkpoint_dir = configure.model_dir + '/torch/'
     filename = 'checkpoint_epoch' + epoch + '.pth.tar'
-    torch.save(state, checkpoint_dir + filename)
+    torch.save(state, configure.ckpt_dir + filename)
     if is_best:
-        shutil.copyfile(checkpoint_dir + filename, checkpoint_dir + 'model_best.pth.tar')
+        shutil.copyfile(configure.ckpt_dir + filename, configure.ckpt_dir + 'model_best.pth.tar')
 
 
 class Summary(Enum):
