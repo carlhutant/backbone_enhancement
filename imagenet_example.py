@@ -238,7 +238,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                          scale=(configure.train_resize_area_ratio_min,
                                                 configure.train_resize_area_ratio_max),
                                          ratio=(configure.train_crop_ratio, configure.train_crop_ratio)),
-            data_argumentation.ColorDiff121abs3ch(),
+            # data_argumentation.ColorDiff121abs3ch(),
             # transforms.RandomResizedCrop(size=(224, 448), scale=(0.5, 0.5), ratio=(2, 2)),
             transforms.RandomHorizontalFlip(),
             normalize,
@@ -252,7 +252,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                          scale=(configure.val_resize_area_ratio_min,
                                                 configure.val_resize_area_ratio_max),
                                          ratio=(configure.val_crop_ratio, configure.val_crop_ratio)),
-            data_argumentation.ColorDiff121abs3ch(),
+            # data_argumentation.ColorDiff121abs3ch(),
             # transforms.Resize(256),
             # transforms.CenterCrop(224),
             normalize,
@@ -306,7 +306,7 @@ def main_worker(gpu, ngpus_per_node, args):
     #         instance_count += 1
     #     batch_count += 1
 
-    log_rec = log_record.LogRecoder(args.resume is not None)
+    log_rec = log_record.LogRecoder(args.resume != '')
 
     if args.evaluate:
         validate(val_loader, model, criterion, log_rec, args)
