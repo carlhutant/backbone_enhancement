@@ -141,6 +141,7 @@ def main_worker(gpu, ngpus_per_node, args):
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
     # create model
+    # if False:
     if args.arch.startswith('resnet'):
         if args.arch == 'resnet50':
             model = ResNet.resnet50()
@@ -238,6 +239,9 @@ def main_worker(gpu, ngpus_per_node, args):
     if configure.data_advance == 'none':
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                          std=[0.229, 0.224, 0.225])
+    elif configure.data_advance == 'color_diff_121_abs_3ch':
+        normalize = transforms.Normalize(mean=[0.043, 0.043, 0.043],
+                                         std=[0.047, 0.047, 0.047])
     else:
         raise RuntimeError
 
@@ -350,6 +354,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict()
             }, is_best, '{:03d}'.format(epoch + 1))
+    stop = 1
 
 
 def train(train_loader, model, criterion, optimizer, epoch, log_rec, args):
