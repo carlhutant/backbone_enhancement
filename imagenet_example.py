@@ -144,6 +144,8 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.arch.startswith('resnet'):
         if args.arch == 'resnet50':
             model = ResNet.resnet50()
+        elif args.arch == 'resnet101':
+            model = ResNet.resnet101()
         else:
             raise RuntimeError
     else:
