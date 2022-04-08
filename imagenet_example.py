@@ -85,6 +85,8 @@ parser.add_argument('--multiprocessing-distributed', action='store_true',
                          'multi node data parallel training')
 
 best_acc1 = 0
+best_acc1_early_stop = 0
+count_early_stop = 0
 
 
 def main():
@@ -121,11 +123,11 @@ def main():
         # Simply call main_worker function
         main_worker(args.gpu, ngpus_per_node, args)
 
-    main_worker(args.gpu, ngpus_per_node, args)
-
 
 def main_worker(gpu, ngpus_per_node, args):
     global best_acc1
+    global best_acc1_early_stop
+    global count_early_stop
     args.gpu = gpu
 
     if args.gpu is not None:
@@ -252,7 +254,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                          scale=(configure.train_resize_area_ratio_min,
                                                 configure.train_resize_area_ratio_max),
                                          ratio=(configure.train_crop_ratio, configure.train_crop_ratio)),
-            # data_argumentation.ColorDiff121abs3ch(),
+            data_argumentation.ColorDiff121abs3ch(),
             # transforms.RandomResizedCrop(size=(224, 448), scale=(0.5, 0.5), ratio=(2, 2)),
             transforms.RandomHorizontalFlip(),
             normalize,
@@ -266,7 +268,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                          scale=(configure.val_resize_area_ratio_min,
                                                 configure.val_resize_area_ratio_max),
                                          ratio=(configure.val_crop_ratio, configure.val_crop_ratio)),
-            # data_argumentation.ColorDiff121abs3ch(),
+            data_argumentation.ColorDiff121abs3ch(),
             # transforms.Resize(256),
             # transforms.CenterCrop(224),
             normalize,
@@ -352,6 +354,12 @@ def main_worker(gpu, ngpus_per_node, args):
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict()
             }, is_best, '{:03d}'.format(epoch + 1))
+        if best_acc1 == best_acc1_early_stop:
+            count_early_stop += 1
+        else:
+            count_early_stop = 0
+        if count_early_stop == configure.early_stop:
+            break
     stop = 1
 
 
