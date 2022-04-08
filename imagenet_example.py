@@ -232,8 +232,8 @@ def main_worker(gpu, ngpus_per_node, args):
     cudnn.benchmark = True
 
     # Data loading code
-    traindir = os.path.join(args.data, 'train')
-    valdir = os.path.join(args.data, 'val')
+    train_dir = os.path.join(args.data, 'train')
+    val_dir = os.path.join(args.data, 'val')
     # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
     #                                  std=[0.229, 0.224, 0.225])
     if configure.data_advance == 'none':
@@ -245,34 +245,47 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         raise RuntimeError
 
-    train_dataset = datasets.ImageFolder(
-        traindir,
-        transforms.Compose([
-            transforms.ToTensor(),
-            # size是(高, 寬), scale是指面積占比, ratio是寬/高
-            transforms.RandomResizedCrop(size=(configure.train_crop_h + 2, configure.train_crop_w + 2),
-                                         scale=(configure.train_resize_area_ratio_min,
-                                                configure.train_resize_area_ratio_max),
-                                         ratio=(configure.train_crop_ratio, configure.train_crop_ratio)),
-            data_argumentation.ColorDiff121abs3ch(),
-            # transforms.RandomResizedCrop(size=(224, 448), scale=(0.5, 0.5), ratio=(2, 2)),
-            transforms.RandomHorizontalFlip(),
-            normalize,
-        ]))
+    train_compose_list = [transforms.ToTensor()]
+    if configure.data_advance == 'none':
+        train_compose_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h, configure.train_crop_w),
+                                                               scale=(configure.train_resize_area_ratio_min,
+                                                                      configure.train_resize_area_ratio_max),
+                                                               ratio=(configure.train_crop_ratio,
+                                                                      configure.train_crop_ratio)))
+    elif configure.data_advance == 'color_diff_121_abs_3ch':
+        train_compose_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h + 2,
+                                                                     configure.train_crop_w + 2),
+                                                               scale=(configure.train_resize_area_ratio_min,
+                                                                      configure.train_resize_area_ratio_max),
+                                                               ratio=(
+                                                               configure.train_crop_ratio, configure.train_crop_ratio)))
+        train_compose_list.append(data_argumentation.ColorDiff121abs3ch())
+    else:
+        raise RuntimeError
+    train_compose_list.append(transforms.RandomHorizontalFlip())
+    train_compose_list.append(normalize)
 
-    val_dataset = datasets.ImageFolder(
-        valdir,
-        transforms.Compose([
-            transforms.ToTensor(),
-            transforms.RandomResizedCrop(size=(configure.val_crop_h + 2, configure.val_crop_w + 2),
-                                         scale=(configure.val_resize_area_ratio_min,
-                                                configure.val_resize_area_ratio_max),
-                                         ratio=(configure.val_crop_ratio, configure.val_crop_ratio)),
-            data_argumentation.ColorDiff121abs3ch(),
-            # transforms.Resize(256),
-            # transforms.CenterCrop(224),
-            normalize,
-        ]))
+    val_compose_list = [transforms.ToTensor()]
+    if configure.data_advance == 'none':
+        val_compose_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h, configure.val_crop_w),
+                                                             scale=(configure.val_resize_area_ratio_min,
+                                                                    configure.val_resize_area_ratio_max),
+                                                             ratio=(configure.val_crop_ratio,
+                                                                    configure.val_crop_ratio)))
+    elif configure.data_advance == 'color_diff_121_abs_3ch':
+        val_compose_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h + 2,
+                                                                   configure.val_crop_w + 2),
+                                                             scale=(configure.val_resize_area_ratio_min,
+                                                                    configure.val_resize_area_ratio_max),
+                                                             ratio=(configure.val_crop_ratio,
+                                                                    configure.val_crop_ratio)))
+        val_compose_list.append(data_argumentation.ColorDiff121abs3ch())
+    else:
+        raise RuntimeError
+    val_compose_list.append(normalize)
+
+    train_dataset = datasets.ImageFolder(train_dir, transforms.Compose(train_compose_list))
+    val_dataset = datasets.ImageFolder(val_dir, transforms.Compose(val_compose_list))
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -360,7 +373,6 @@ def main_worker(gpu, ngpus_per_node, args):
             count_early_stop = 0
         if count_early_stop == configure.early_stop:
             break
-    stop = 1
 
 
 def train(train_loader, model, criterion, optimizer, epoch, log_rec, args):
