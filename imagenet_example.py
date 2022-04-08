@@ -263,7 +263,7 @@ def main_worker(gpu, ngpus_per_node, args):
     else:
         raise RuntimeError
     train_compose_list.append(transforms.RandomHorizontalFlip())
-    train_compose_list.append(normalize)
+    # train_compose_list.append(normalize)
 
     val_compose_list = [transforms.ToTensor()]
     if configure.data_advance == 'none':
@@ -282,7 +282,7 @@ def main_worker(gpu, ngpus_per_node, args):
         val_compose_list.append(data_argumentation.ColorDiff121abs3ch())
     else:
         raise RuntimeError
-    val_compose_list.append(normalize)
+    # val_compose_list.append(normalize)
 
     train_dataset = datasets.ImageFolder(train_dir, transforms.Compose(train_compose_list))
     val_dataset = datasets.ImageFolder(val_dir, transforms.Compose(val_compose_list))
@@ -312,7 +312,7 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # visualizing train_loader
     # batch_count = 0
-    # for batch_instance in iter(train_loader):
+    # for batch_instance in iter(val_loader):
     #     instance_count = 0
     #     for instance_No in range(args.batch_size):
     #         (image_tensor, label_tensor) = (batch_instance[0][instance_No], batch_instance[1][instance_No])
