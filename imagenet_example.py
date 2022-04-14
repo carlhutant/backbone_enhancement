@@ -462,6 +462,7 @@ def main_worker(gpu, ngpus_per_node, args):
         if best_acc1 == best_acc1_early_stop:
             count_early_stop += 1
         else:
+            best_acc1_early_stop = best_acc1
             count_early_stop = 0
         if count_early_stop == configure.early_stop:
             break
