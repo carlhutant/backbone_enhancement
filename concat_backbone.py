@@ -10,6 +10,7 @@ from torch import Tensor
 class ConcatResNet50(nn.Module):
     def __init__(self) -> None:
         super().__init__()
+        self.fc_removed = False
 
         # 建立 models
         if not configure.multi_model:
@@ -65,8 +66,10 @@ class ConcatResNet50(nn.Module):
         # stop = 1
 
     def remove_fc(self):
-        self.model1 = torch.nn.Sequential(*list(self.model1.children())[:-1])
-        self.model2 = torch.nn.Sequential(*list(self.model2.children())[:-1])
+        if not self.fc_removed:
+            self.model1 = torch.nn.Sequential(*list(self.model1.children())[:-1])
+            self.model2 = torch.nn.Sequential(*list(self.model2.children())[:-1])
+            self.fc_removed = True
 
     def _forward_impl(self, x: Tensor) -> Tensor:
         data1, data2 = torch.split(x, [3, 3], dim=1)

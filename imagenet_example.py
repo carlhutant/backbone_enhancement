@@ -215,8 +215,11 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.resume:
         if configure.multi_model and configure.resume_ckpt_path2 is not None:
             model.load(configure.resume_ckpt_path1, configure.resume_ckpt_path2, args)
+            model.remove_fc()
         else:
             if os.path.isfile(args.resume):
+                if configure.multi_model:
+                    model.remove_fc()
                 print("=> loading checkpoint '{}'".format(args.resume))
                 if args.gpu is None:
                     checkpoint = torch.load(args.resume)
@@ -237,9 +240,7 @@ def main_worker(gpu, ngpus_per_node, args):
             else:
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
 
-    if configure.multi_model:
-        model.remove_fc()
-        # model.ck_fc()
+    # model.ck_fc()
 
     # print(model)
     # get all layer names and weights
@@ -424,7 +425,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 instance_count += 1
             batch_count += 1
 
-    log_rec = log_record.LogRecoder(args.resume != '')
+    log_rec = log_record.LogRecoder(args.resume is not None)
 
     if args.evaluate:
         validate(val_loader, model, criterion, log_rec, args)
