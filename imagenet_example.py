@@ -63,7 +63,7 @@ parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default=configure.resume_ckpt_path1, type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
+parser.add_argument('-e', '--evaluate', default=configure.evaluate_only, dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                     help='use pre-trained model')
@@ -576,7 +576,7 @@ def validate(val_loader, model, criterion, log_rec, args):
             #     progress.display(i)
         # progress.display(len(val_loader))
         # progress.display_summary()
-            if i == len(val_loader) - 1:
+            if i == len(val_loader) - 1 and not args.evaluate:
                 log_rec.write('\t\tvalidation: ' + progress.display(i) + '%')
             tqdm_control.set_postfix_str(progress.display(i) + '%')
             tqdm_control.update(1)
