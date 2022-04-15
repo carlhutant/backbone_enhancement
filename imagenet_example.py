@@ -213,7 +213,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # optionally resume from a checkpoint
 
     if args.resume:
-        if configure.multi_model:
+        if configure.multi_model and configure.resume_ckpt_path2 is not None:
             model.load(configure.resume_ckpt_path1, configure.resume_ckpt_path2, args)
         else:
             if os.path.isfile(args.resume):
