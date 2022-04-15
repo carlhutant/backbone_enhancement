@@ -194,9 +194,6 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # print(model)
 
-    for name, param in model.named_parameters():
-        a = 0
-
     # define loss function (criterion), optimizer, and learning rate scheduler
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
@@ -240,14 +237,8 @@ def main_worker(gpu, ngpus_per_node, args):
             else:
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
 
-    names = []
     if configure.multi_model:
         model.remove_fc()
-        for name, param in model.named_parameters():
-            if 'fc' in name:
-                pass
-            else:
-                param.requires_grad = False
         # model.ck_fc()
 
     # print(model)

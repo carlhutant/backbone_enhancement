@@ -23,12 +23,14 @@ class ConcatResNet50(nn.Module):
         else:
             raise RuntimeError
 
+        self.model1.requires_grad_(False)
+        self.model2.requires_grad_(False)
+
         # 建立剩下的 FC
         self.fc = torch.nn.Linear(4096, configure.class_num)
 
     def load(self, path1, path2, args):
         # load weights
-        # 待確認是否真的讀入
         for model, path in [(self.model1, path1), (self.model2, path2)]:
             if os.path.isfile(path):
                 print("=> loading checkpoint '{}'".format(path))
@@ -72,7 +74,7 @@ class ConcatResNet50(nn.Module):
         x2 = self.model2(data2)
         x = torch.concat([x1, x2], dim=1)
         x = torch.flatten(x, 1)
-        # x = self.fc(x)
+        x = self.fc(x)
 
         return x
 
