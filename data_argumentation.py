@@ -125,6 +125,27 @@ class AppendColorDiff121abs3ch:
         return f"{self.__class__.__name__}()"
 
 
+class ChannelSwap:
+    def __init__(self, order=None) -> None:
+        # self.horizontal_filter = np.array([[1, 0, -1],
+        #                                    [2, 0, -2],
+        #                                    [1, 0, -1]], dtype="int")
+        # self.vertical_filter = np.array([[1, 2, 1],
+        #                                  [0, 0, 0],
+        #                                  [-1, -2, -1]], dtype="int")
+        if order is None:
+            self.order = [0, 1, 2]
+        else:
+            self.order = order
+
+    def __call__(self, pic):
+        pic = pic[self.order, ...]
+        return pic
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+
 if __name__ == '__main__':
     image = cv2.imread('E:/Dataset/AWA2/img/none/train/antelope/antelope_10002.jpg')
     # image = np.concatenate((np.zeros((3, 3, 1))+1, np.zeros((3, 3, 1))+2, np.zeros((3, 3, 1))+3,

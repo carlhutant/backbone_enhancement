@@ -314,6 +314,9 @@ def main_worker(gpu, ngpus_per_node, args):
         else:
             raise RuntimeError
 
+    if configure.rgb_swap_order1 is not None:
+        train_compose_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order1))
+
     if configure.train_random_horizontal_flip:
         train_compose_list.append(transforms.RandomHorizontalFlip())
     if not configure.data_sampler:
@@ -355,6 +358,9 @@ def main_worker(gpu, ngpus_per_node, args):
             val_compose_list.append(data_argumentation.ColorDiff121abs3ch())
         else:
             raise RuntimeError
+
+    if configure.rgb_swap_order1 is not None:
+        val_compose_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order1))
 
     if not configure.data_sampler:
         val_compose_list.append(normalize)
