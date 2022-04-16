@@ -10,6 +10,7 @@ from torch import Tensor
 class ConcatResNet50(nn.Module):
     def __init__(self) -> None:
         super().__init__()
+        self.fc_removed = False
 
         # 建立 models
         if not configure.multi_model:
@@ -23,12 +24,16 @@ class ConcatResNet50(nn.Module):
         else:
             raise RuntimeError
 
+        self.model1.requires_grad_(False)
+        self.model2.requires_grad_(False)
+
+        self.dropout = torch.nn.Dropout(p=configure.dropout_rate)
+
         # 建立剩下的 FC
         self.fc = torch.nn.Linear(4096, configure.class_num)
 
     def load(self, path1, path2, args):
         # load weights
-        # 待確認是否真的讀入
         for model, path in [(self.model1, path1), (self.model2, path2)]:
             if os.path.isfile(path):
                 print("=> loading checkpoint '{}'".format(path))
@@ -63,8 +68,10 @@ class ConcatResNet50(nn.Module):
         # stop = 1
 
     def remove_fc(self):
-        self.model1 = torch.nn.Sequential(*list(self.model1.children())[:-1])
-        self.model2 = torch.nn.Sequential(*list(self.model2.children())[:-1])
+        if not self.fc_removed:
+            self.model1 = torch.nn.Sequential(*list(self.model1.children())[:-1])
+            self.model2 = torch.nn.Sequential(*list(self.model2.children())[:-1])
+            self.fc_removed = True
 
     def _forward_impl(self, x: Tensor) -> Tensor:
         data1, data2 = torch.split(x, [3, 3], dim=1)
@@ -72,7 +79,8 @@ class ConcatResNet50(nn.Module):
         x2 = self.model2(data2)
         x = torch.concat([x1, x2], dim=1)
         x = torch.flatten(x, 1)
-        # x = self.fc(x)
+        x = self.dropout(x)
+        x = self.fc(x)
 
         return x
 

@@ -63,7 +63,7 @@ parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default=configure.resume_ckpt_path1, type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
-parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
+parser.add_argument('-e', '--evaluate', default=configure.evaluate_only, dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                     help='use pre-trained model')
@@ -194,9 +194,6 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # print(model)
 
-    for name, param in model.named_parameters():
-        a = 0
-
     # define loss function (criterion), optimizer, and learning rate scheduler
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
@@ -216,10 +213,13 @@ def main_worker(gpu, ngpus_per_node, args):
     # optionally resume from a checkpoint
 
     if args.resume:
-        if configure.multi_model:
+        if configure.multi_model and configure.resume_ckpt_path2 is not None:
             model.load(configure.resume_ckpt_path1, configure.resume_ckpt_path2, args)
+            model.remove_fc()
         else:
             if os.path.isfile(args.resume):
+                if configure.multi_model:
+                    model.remove_fc()
                 print("=> loading checkpoint '{}'".format(args.resume))
                 if args.gpu is None:
                     checkpoint = torch.load(args.resume)
@@ -240,15 +240,7 @@ def main_worker(gpu, ngpus_per_node, args):
             else:
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
 
-    names = []
-    if configure.multi_model:
-        model.remove_fc()
-        for name, param in model.named_parameters():
-            if 'fc' in name:
-                pass
-            else:
-                param.requires_grad = False
-        # model.ck_fc()
+    # model.ck_fc()
 
     # print(model)
     # get all layer names and weights
@@ -323,6 +315,9 @@ def main_worker(gpu, ngpus_per_node, args):
         else:
             raise RuntimeError
 
+    if configure.rgb_swap_order1 is not None:
+        train_compose_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order1))
+
     if configure.train_random_horizontal_flip:
         train_compose_list.append(transforms.RandomHorizontalFlip())
     if not configure.data_sampler:
@@ -364,6 +359,9 @@ def main_worker(gpu, ngpus_per_node, args):
             val_compose_list.append(data_argumentation.ColorDiff121abs3ch())
         else:
             raise RuntimeError
+
+    if configure.rgb_swap_order1 is not None:
+        val_compose_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order1))
 
     if not configure.data_sampler:
         val_compose_list.append(normalize)
@@ -427,7 +425,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 instance_count += 1
             batch_count += 1
 
-    log_rec = log_record.LogRecoder(args.resume != '')
+    log_rec = log_record.LogRecoder(args.resume is not None)
 
     if args.evaluate:
         validate(val_loader, model, criterion, log_rec, args)
@@ -579,7 +577,7 @@ def validate(val_loader, model, criterion, log_rec, args):
             #     progress.display(i)
         # progress.display(len(val_loader))
         # progress.display_summary()
-            if i == len(val_loader) - 1:
+            if i == len(val_loader) - 1 and not args.evaluate:
                 log_rec.write('\t\tvalidation: ' + progress.display(i) + '%')
             tqdm_control.set_postfix_str(progress.display(i) + '%')
             tqdm_control.update(1)
