@@ -27,7 +27,7 @@ class ConcatResNet50(nn.Module):
         self.model1.requires_grad_(False)
         self.model2.requires_grad_(False)
 
-        self.dropout = torch.nn.Dropout(p=0.5)
+        self.dropout = torch.nn.Dropout(p=configure.dropout_rate)
 
         # 建立剩下的 FC
         self.fc = torch.nn.Linear(4096, configure.class_num)
