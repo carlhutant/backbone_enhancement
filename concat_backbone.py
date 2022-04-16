@@ -27,6 +27,8 @@ class ConcatResNet50(nn.Module):
         self.model1.requires_grad_(False)
         self.model2.requires_grad_(False)
 
+        self.dropout = torch.nn.Dropout(p=0.5)
+
         # 建立剩下的 FC
         self.fc = torch.nn.Linear(4096, configure.class_num)
 
@@ -77,6 +79,7 @@ class ConcatResNet50(nn.Module):
         x2 = self.model2(data2)
         x = torch.concat([x1, x2], dim=1)
         x = torch.flatten(x, 1)
+        x = self.dropout(x)
         x = self.fc(x)
 
         return x
