@@ -11,7 +11,7 @@ class LogRecoder:
                 os.makedirs(configure.ckpt_dir)
                 print('Mkdir check point directory: {}.'.format(configure.ckpt_dir))
             except FileExistsError:
-                # print('Check point directory exist. No need for mkdir.')
+                print('Check point directory exist. {}.'.format(configure.ckpt_dir))
                 pass
 
     def write(self, line):
