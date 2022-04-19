@@ -150,7 +150,9 @@ def main_worker(gpu, ngpus_per_node, args):
         # if False:
         if args.arch.startswith('resnet'):
             if args.arch == 'resnet50':
-                model = ResNet.resnet50()
+                model = ResNet.resnet50(configure.model_mode1)
+            elif args.arch == 'resnet101':
+                model = ResNet.resnet101(configure.model_mode1)
             else:
                 raise RuntimeError
         else:
@@ -194,8 +196,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # print(model)
 
-    for name, param in model.named_parameters():
-        a = 0
+    # for name, param in model.named_parameters():
+    #     a = 0
 
     # define loss function (criterion), optimizer, and learning rate scheduler
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
