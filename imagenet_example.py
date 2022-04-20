@@ -577,7 +577,7 @@ def validate(val_loader, model, criterion, log_rec, args):
             #     progress.display(i)
         # progress.display(len(val_loader))
         # progress.display_summary()
-            if i == len(val_loader) - 1:
+            if i == len(val_loader) - 1 and not configure.evaluate_only:
                 log_rec.write('\t\tvalidation: ' + progress.display(i) + '%')
             tqdm_control.set_postfix_str(progress.display(i) + '%')
             tqdm_control.update(1)
