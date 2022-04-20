@@ -121,8 +121,31 @@ def main():
         # main_worker process function
         mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
     else:
-        # Simply call main_worker function
-        main_worker(args.gpu, ngpus_per_node, args)
+        if configure.swap_evaluate:
+            order_list = []
+            if configure.channel == 6:
+                order_list.append([0, 1, 2, 3, 4, 5])
+                order_list.append([0, 2, 1, 3, 5, 4])
+                order_list.append([1, 0, 2, 4, 3, 5])
+                order_list.append([1, 2, 0, 4, 5, 3])
+                order_list.append([2, 0, 1, 5, 3, 4])
+                order_list.append([2, 1, 0, 5, 4, 3])
+            elif configure.channel == 3:
+                order_list.append([0, 1, 2])
+                order_list.append([0, 2, 1])
+                order_list.append([1, 0, 2])
+                order_list.append([1, 2, 0])
+                order_list.append([2, 0, 1])
+                order_list.append([2, 1, 0])
+            else:
+                raise RuntimeError
+            for order in order_list:
+                configure.rgb_swap_order1 = order
+                print('order:{}'.format(configure.rgb_swap_order1))
+                main_worker(args.gpu, ngpus_per_node, args)
+        else:
+            # Simply call main_worker function
+            main_worker(args.gpu, ngpus_per_node, args)
 
 
 def main_worker(gpu, ngpus_per_node, args):
