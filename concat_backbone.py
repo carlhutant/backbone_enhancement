@@ -59,6 +59,8 @@ class ConcatResNet50(nn.Module):
             else:
                 print("=> no checkpoint found at '{}'".format(path))
                 raise RuntimeError
+
+        self.remove_fc()
         # get all layer names and weights
         # names1 = []
         # parameters1 = []

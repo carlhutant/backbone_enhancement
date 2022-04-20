@@ -234,6 +234,8 @@ def main_worker(gpu, ngpus_per_node, args):
                 if args.gpu is not None:
                     # best_acc1 may be from a checkpoint from a different GPU
                     best_acc1 = best_acc1.to(args.gpu)
+                if configure.multi_model:
+                    model.remove_fc()
                 model.load_state_dict(checkpoint['state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
                 scheduler.load_state_dict(checkpoint['scheduler'])
@@ -241,16 +243,6 @@ def main_worker(gpu, ngpus_per_node, args):
                       .format(args.resume, checkpoint['epoch']))
             else:
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
-
-    names = []
-    if configure.multi_model:
-        model.remove_fc()
-        for name, param in model.named_parameters():
-            if 'fc' in name:
-                pass
-            else:
-                param.requires_grad = False
-        # model.ck_fc()
 
     # print(model)
     # get all layer names and weights
