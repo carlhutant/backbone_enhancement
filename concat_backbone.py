@@ -1,4 +1,5 @@
 import os
+from pyexpat import model
 import torch
 import torch.nn as nn
 import ResNet
@@ -16,11 +17,11 @@ class ConcatResNet50(nn.Module):
         if not configure.multi_model:
             raise RuntimeError
         if configure.model1 == 'resnet50':
-            self.model1 = ResNet.resnet50()
+            self.model1 = ResNet.resnet50(configure.model_mode1)
         else:
             raise RuntimeError
         if configure.model2 == 'resnet50':
-            self.model2 = ResNet.resnet50()
+            self.model2 = ResNet.resnet50(configure.model_mode2)
         else:
             raise RuntimeError
 
@@ -30,7 +31,12 @@ class ConcatResNet50(nn.Module):
         self.dropout = torch.nn.Dropout(p=configure.dropout_rate)
 
         # 建立剩下的 FC
-        self.fc = torch.nn.Linear(4096, configure.class_num)
+        fc_channel = 4096
+        if configure.model_mode1 == 'half':
+            fc_channel -= 1024
+        if configure.model_mode2 == 'half':
+            fc_channel -= 1024
+        self.fc = torch.nn.Linear(fc_channel, configure.class_num)
 
     def load(self, path1, path2, args):
         # load weights

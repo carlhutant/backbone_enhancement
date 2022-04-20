@@ -150,7 +150,9 @@ def main_worker(gpu, ngpus_per_node, args):
         # if False:
         if args.arch.startswith('resnet'):
             if args.arch == 'resnet50':
-                model = ResNet.resnet50()
+                model = ResNet.resnet50(configure.model_mode1)
+            elif args.arch == 'resnet101':
+                model = ResNet.resnet101(configure.model_mode1)
             else:
                 raise RuntimeError
         else:
@@ -194,6 +196,9 @@ def main_worker(gpu, ngpus_per_node, args):
 
     # print(model)
 
+    # for name, param in model.named_parameters():
+    #     a = 0
+
     # define loss function (criterion), optimizer, and learning rate scheduler
     criterion = nn.CrossEntropyLoss().cuda(args.gpu)
 
@@ -213,13 +218,10 @@ def main_worker(gpu, ngpus_per_node, args):
     # optionally resume from a checkpoint
 
     if args.resume:
-        if configure.multi_model and configure.resume_ckpt_path2 is not None:
+        if configure.multi_model:
             model.load(configure.resume_ckpt_path1, configure.resume_ckpt_path2, args)
-            model.remove_fc()
         else:
             if os.path.isfile(args.resume):
-                if configure.multi_model:
-                    model.remove_fc()
                 print("=> loading checkpoint '{}'".format(args.resume))
                 if args.gpu is None:
                     checkpoint = torch.load(args.resume)
@@ -240,7 +242,15 @@ def main_worker(gpu, ngpus_per_node, args):
             else:
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
 
-    # model.ck_fc()
+    names = []
+    if configure.multi_model:
+        model.remove_fc()
+        for name, param in model.named_parameters():
+            if 'fc' in name:
+                pass
+            else:
+                param.requires_grad = False
+        # model.ck_fc()
 
     # print(model)
     # get all layer names and weights
@@ -315,9 +325,6 @@ def main_worker(gpu, ngpus_per_node, args):
         else:
             raise RuntimeError
 
-    if configure.rgb_swap_order1 is not None:
-        train_compose_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order1))
-
     if configure.train_random_horizontal_flip:
         train_compose_list.append(transforms.RandomHorizontalFlip())
     if not configure.data_sampler:
@@ -359,9 +366,6 @@ def main_worker(gpu, ngpus_per_node, args):
             val_compose_list.append(data_argumentation.ColorDiff121abs3ch())
         else:
             raise RuntimeError
-
-    if configure.rgb_swap_order1 is not None:
-        val_compose_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order1))
 
     if not configure.data_sampler:
         val_compose_list.append(normalize)
@@ -425,7 +429,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 instance_count += 1
             batch_count += 1
 
-    log_rec = log_record.LogRecoder(args.resume is not None)
+    log_rec = log_record.LogRecoder(args.resume != '')
 
     if args.evaluate:
         validate(val_loader, model, criterion, log_rec, args)
@@ -577,7 +581,7 @@ def validate(val_loader, model, criterion, log_rec, args):
             #     progress.display(i)
         # progress.display(len(val_loader))
         # progress.display_summary()
-            if i == len(val_loader) - 1 and not args.evaluate:
+            if i == len(val_loader) - 1:
                 log_rec.write('\t\tvalidation: ' + progress.display(i) + '%')
             tqdm_control.set_postfix_str(progress.display(i) + '%')
             tqdm_control.update(1)
