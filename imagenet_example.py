@@ -265,13 +265,24 @@ def main_worker(gpu, ngpus_per_node, args):
             else:
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
 
+    # create check weight model 用來確認 concat 的 backbone 有被 fix
+    ck_model = ResNet.resnet50(configure.model_mode1)
+    checkpoint = torch.load(configure.resume_ckpt_path2)
+    ck_model.load_state_dict(checkpoint['state_dict'])
+
+    names2 = []
+    parameters2 = []
+    for name, param in ck_model.named_parameters():
+        names2.append(name)
+        parameters2.append(param.cpu().detach().numpy())
+
     # print(model)
     # get all layer names and weights
-    # names = []
-    # parameters = []
-    # for name, param in model.named_parameters():
-    #     names.append(name)
-    #     parameters.append(param.cpu().detach().numpy())
+    names = []
+    parameters = []
+    for name, param in model.model1.named_parameters():
+        names.append(name)
+        parameters.append(param.cpu().detach().numpy())
 
     cudnn.benchmark = True
 
