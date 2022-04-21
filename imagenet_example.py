@@ -266,13 +266,14 @@ def main_worker(gpu, ngpus_per_node, args):
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
 
     # create check weight model 用來確認 concat 的 backbone 有被 fix
-    ck_model = ResNet.resnet50(configure.model_mode1)
-    checkpoint = torch.load(configure.resume_ckpt_path2)
+    ck_model = concat_backbone.ConcatResNet50()
+    ck_model.remove_fc()
+    checkpoint = torch.load('/home/ai2020/ne6091069/Model/torch/AWA2/none_color_diff_121_abs_3ch/batch16/resnet101_resnet101/SGD/ReduceLROnPlateau/dropout0/model_best.pth.tar')
     ck_model.load_state_dict(checkpoint['state_dict'])
 
     names2 = []
     parameters2 = []
-    for name, param in ck_model.named_parameters():
+    for name, param in ck_model.model2.named_parameters():
         names2.append(name)
         parameters2.append(param.cpu().detach().numpy())
 
@@ -280,9 +281,22 @@ def main_worker(gpu, ngpus_per_node, args):
     # get all layer names and weights
     names = []
     parameters = []
-    for name, param in model.model1.named_parameters():
+    for name, param in model.model2.named_parameters():
         names.append(name)
         parameters.append(param.cpu().detach().numpy())
+
+    if len(names) != len(names2):
+        raise RuntimeError
+    if len(parameters) != len(parameters2):
+        raise RuntimeError
+    for i in range(len(names)):
+        if names[i] != names2[i]:
+            raise RuntimeError
+    for i in range(len(parameters)):
+        compare = parameters[i] == parameters2[i]
+        if not compare.all():
+            raise RuntimeError
+    print('all weights the same')
 
     cudnn.benchmark = True
 
