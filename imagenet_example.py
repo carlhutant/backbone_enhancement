@@ -121,8 +121,29 @@ def main():
         # main_worker process function
         mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
     else:
-        # Simply call main_worker function
-        main_worker(args.gpu, ngpus_per_node, args)
+        if configure.swap_evaluate:
+            order_list = []
+            if configure.multi_model or configure.multi_data_advance:
+                order_list.append([0, 1, 2, 3, 4, 5])
+                order_list.append([0, 2, 1, 3, 5, 4])
+                order_list.append([1, 0, 2, 4, 3, 5])
+                order_list.append([1, 2, 0, 4, 5, 3])
+                order_list.append([2, 0, 1, 5, 3, 4])
+                order_list.append([2, 1, 0, 5, 4, 3])
+            else:
+                order_list.append([0, 1, 2])
+                order_list.append([0, 2, 1])
+                order_list.append([1, 0, 2])
+                order_list.append([1, 2, 0])
+                order_list.append([2, 0, 1])
+                order_list.append([2, 1, 0])
+            for order in order_list:
+                configure.rgb_swap_order1 = order
+                print('order:{}'.format(configure.rgb_swap_order1))
+                main_worker(args.gpu, ngpus_per_node, args)
+        else:
+            # Simply call main_worker function
+            main_worker(args.gpu, ngpus_per_node, args)
 
 
 def main_worker(gpu, ngpus_per_node, args):
@@ -218,7 +239,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # optionally resume from a checkpoint
 
     if args.resume:
-        if configure.multi_model:
+        if configure.multi_model and configure.resume_ckpt_path2 is not None:
             model.load(configure.resume_ckpt_path1, configure.resume_ckpt_path2, args)
         else:
             if os.path.isfile(args.resume):
@@ -234,6 +255,8 @@ def main_worker(gpu, ngpus_per_node, args):
                 if args.gpu is not None:
                     # best_acc1 may be from a checkpoint from a different GPU
                     best_acc1 = best_acc1.to(args.gpu)
+                if configure.multi_model:
+                    model.remove_fc()
                 model.load_state_dict(checkpoint['state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
                 scheduler.load_state_dict(checkpoint['scheduler'])
@@ -241,16 +264,6 @@ def main_worker(gpu, ngpus_per_node, args):
                       .format(args.resume, checkpoint['epoch']))
             else:
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
-
-    names = []
-    if configure.multi_model:
-        model.remove_fc()
-        for name, param in model.named_parameters():
-            if 'fc' in name:
-                pass
-            else:
-                param.requires_grad = False
-        # model.ck_fc()
 
     # print(model)
     # get all layer names and weights
@@ -327,6 +340,8 @@ def main_worker(gpu, ngpus_per_node, args):
 
     if configure.train_random_horizontal_flip:
         train_compose_list.append(transforms.RandomHorizontalFlip())
+    if configure.rgb_swap_order1 is not None:
+        train_compose_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order1))
     if not configure.data_sampler:
         train_compose_list.append(normalize)
 
@@ -367,6 +382,8 @@ def main_worker(gpu, ngpus_per_node, args):
         else:
             raise RuntimeError
 
+    if configure.rgb_swap_order1 is not None:
+        val_compose_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order1))
     if not configure.data_sampler:
         val_compose_list.append(normalize)
 
@@ -581,7 +598,7 @@ def validate(val_loader, model, criterion, log_rec, args):
             #     progress.display(i)
         # progress.display(len(val_loader))
         # progress.display_summary()
-            if i == len(val_loader) - 1:
+            if i == len(val_loader) - 1 and not configure.evaluate_only:
                 log_rec.write('\t\tvalidation: ' + progress.display(i) + '%')
             tqdm_control.set_postfix_str(progress.display(i) + '%')
             tqdm_control.update(1)
