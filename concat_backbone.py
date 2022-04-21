@@ -103,7 +103,8 @@ class ConcatResNet50(nn.Module):
             x = self.dropout(x)
             x = self.fc(x)
         else:
-            x = self.fc(x2)
+            x = torch.flatten(x1, 1)
+            x = self.fc(x)
 
         if configure.ina_type is None:
             return x
