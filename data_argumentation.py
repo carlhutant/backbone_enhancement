@@ -6,12 +6,6 @@ import cv2
 
 class ColorDiff121abs3ch:
     def __init__(self) -> None:
-        # self.horizontal_filter = np.array([[1, 0, -1],
-        #                                    [2, 0, -2],
-        #                                    [1, 0, -1]], dtype="int")
-        # self.vertical_filter = np.array([[1, 2, 1],
-        #                                  [0, 0, 0],
-        #                                  [-1, -2, -1]], dtype="int")
         self.horizontal_filter = torch.tensor([[1, 0, -1],
                                                [2, 0, -2],
                                                [1, 0, -1]], dtype=torch.float)
@@ -24,10 +18,6 @@ class ColorDiff121abs3ch:
         self.vertical_filter = self.vertical_filter.unsqueeze(0)
 
     def __call__(self, pic):
-        # h = cv2.filter2D(pic, ddepth=-1, kernel=self.horizontal_filter, anchor=(-1, -1), delta=0,
-        #                  borderType=cv2.BORDER_DEFAULT)
-        # v = cv2.filter2D(pic, ddepth=-1, kernel=self.vertical_filter, anchor=(-1, -1), delta=0,
-        #                  borderType=cv2.BORDER_DEFAULT)
         pic = pic.unsqueeze(1)
         h_pic = torch.nn.functional.conv2d(input=pic, weight=self.horizontal_filter, stride=1, padding=0)
         v_pic = torch.nn.functional.conv2d(input=pic, weight=self.vertical_filter, stride=1, padding=0)
@@ -56,12 +46,6 @@ class ColorDiff121abs3ch:
 
 class AppendColorDiff121abs3ch:
     def __init__(self) -> None:
-        # self.horizontal_filter = np.array([[1, 0, -1],
-        #                                    [2, 0, -2],
-        #                                    [1, 0, -1]], dtype="int")
-        # self.vertical_filter = np.array([[1, 2, 1],
-        #                                  [0, 0, 0],
-        #                                  [-1, -2, -1]], dtype="int")
         self.identify_filter = torch.tensor([[[[0, 0, 0],
                                                [0, 1, 0],
                                                [0, 0, 0]]],
@@ -91,12 +75,7 @@ class AppendColorDiff121abs3ch:
                                                [-1, -2, -1]]]], dtype=torch.float)
 
     def __call__(self, pic):
-        # h = cv2.filter2D(pic, ddepth=-1, kernel=self.horizontal_filter, anchor=(-1, -1), delta=0,
-        #                  borderType=cv2.BORDER_DEFAULT)
-        # v = cv2.filter2D(pic, ddepth=-1, kernel=self.vertical_filter, anchor=(-1, -1), delta=0,
-        #                  borderType=cv2.BORDER_DEFAULT)
         pic = pic.unsqueeze(0)
-        # pic = torch.concat([pic, pic], dim=0)
         i_pic = torch.nn.functional.conv2d(input=pic, weight=self.identify_filter, stride=1, padding=0, groups=3)
         h_pic = torch.nn.functional.conv2d(input=pic, weight=self.horizontal_filter, stride=1, padding=0, groups=3)
         v_pic = torch.nn.functional.conv2d(input=pic, weight=self.vertical_filter, stride=1, padding=0, groups=3)
@@ -108,17 +87,6 @@ class AppendColorDiff121abs3ch:
         pic = torch.add(h_pic, v_pic)
         pic = torch.div(pic, 8)
         pic = torch.concat([i_pic, pic], dim=0)
-        # pic = np.array(np.abs(h) + np.abs(v), dtype=float) / 8.0
-
-        # pic = np.array(pic, dtype=np.uint8)
-        # pic[..., 0] = cv2.equalizeHist(pic[..., 0])
-        # pic[..., 1] = cv2.equalizeHist(pic[..., 1])
-        # pic[..., 2] = cv2.equalizeHist(pic[..., 2])
-        # cv2.imshow('h', h)
-        # cv2.imshow('v', v)
-        # cv2.imshow('pic', pic)
-        # cv2.waitKey()
-
         return pic
 
     def __repr__(self) -> str:
@@ -127,16 +95,10 @@ class AppendColorDiff121abs3ch:
 
 class ChannelSwap:
     def __init__(self, order=None) -> None:
-        # self.horizontal_filter = np.array([[1, 0, -1],
-        #                                    [2, 0, -2],
-        #                                    [1, 0, -1]], dtype="int")
-        # self.vertical_filter = np.array([[1, 2, 1],
-        #                                  [0, 0, 0],
-        #                                  [-1, -2, -1]], dtype="int")
-        if order is None:
-            self.order = [0, 1, 2]
-        else:
+        if order is not None:
             self.order = order
+        else:
+            raise RuntimeError
 
     def __call__(self, pic):
         pic = pic[self.order, ...]
