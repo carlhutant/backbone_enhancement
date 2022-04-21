@@ -18,10 +18,14 @@ class ConcatResNet50(nn.Module):
             raise RuntimeError
         if configure.model1 == 'resnet50':
             self.model1 = ResNet.resnet50(configure.model_mode1)
+        elif configure.model1 == 'resnet101':
+            self.model1 = ResNet.resnet101(configure.model_mode1)
         else:
             raise RuntimeError
         if configure.model2 == 'resnet50':
             self.model2 = ResNet.resnet50(configure.model_mode2)
+        elif configure.model1 == 'resnet101':
+            self.model2 = ResNet.resnet101(configure.model_mode2)
         else:
             raise RuntimeError
 
