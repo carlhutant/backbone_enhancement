@@ -612,8 +612,14 @@ def validate(val_loader, model, criterion, log_rec, args):
                 target = target.cuda(args.gpu, non_blocking=True)
 
             # compute output
-            output = model(images)
-            loss = criterion(output, target)
+            if configure.ina_type is None:
+                output = model(images)
+                loss = criterion(output, target)
+            else:
+                output, model1_feature, model2_feature = model(images)
+                loss1 = criterion(output, target)
+                loss2 = criterion(model1_feature, model2_feature)
+                loss = loss1 * configure.ina_loss_weight1 + loss2 * configure.ina_loss_weight2
 
             # measure accuracy and record loss
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
