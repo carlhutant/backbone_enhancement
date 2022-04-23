@@ -33,7 +33,8 @@ class ConcatResNet50(nn.Module):
             self.model1.requires_grad_(False)
         self.model2.requires_grad_(False)
 
-        self.dropout = torch.nn.Dropout(p=configure.dropout_rate)
+        if configure.ina_type is None:
+            self.dropout = torch.nn.Dropout(p=configure.dropout_rate)
 
         # 建立剩下的 FC
         if configure.ina_type is None:
@@ -43,7 +44,10 @@ class ConcatResNet50(nn.Module):
             if configure.model_mode2 == 'half':
                 fc_channel -= 1024
         else:
-            fc_channel = 2048
+            if configure.model_mode1 == 'half':
+                fc_channel = 1024
+            else:
+                fc_channel = 2048
         self.fc = torch.nn.Linear(fc_channel, configure.class_num)
 
     def load(self, path1, path2, args):
@@ -109,7 +113,15 @@ class ConcatResNet50(nn.Module):
         if configure.ina_type is None:
             return x
         else:
-            return x, x1, x2
+            if configure.ina_type == 'full':
+                return x, x1, x2
+            elif configure.ina_type == 'half':
+                if x1.size(1) != x2.size(1) * 2:
+                    raise RuntimeError
+                split_x1 = torch.split(x1, [x2.size(1), x2.size(1)], dim=1)[0]
+                return x, split_x1, x2
+            else:
+                raise RuntimeError
 
     def ck_fc(self):
         print(self)

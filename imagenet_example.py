@@ -264,6 +264,8 @@ def main_worker(gpu, ngpus_per_node, args):
                       .format(args.resume, checkpoint['epoch']))
             else:
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
+    if configure.multi_model:
+        model.remove_fc()
 
     # # create check weight model 用來確認 concat 的 backbone 有被 fix
     # ck_model = concat_backbone.ConcatResNet50()
