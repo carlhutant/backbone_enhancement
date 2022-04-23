@@ -264,14 +264,41 @@ def main_worker(gpu, ngpus_per_node, args):
                       .format(args.resume, checkpoint['epoch']))
             else:
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
+    if configure.multi_model:
+        model.remove_fc()
 
-    # print(model)
-    # get all layer names and weights
+    # # create check weight model 用來確認 concat 的 backbone 有被 fix
+    # ck_model = concat_backbone.ConcatResNet50()
+    # ck_model.remove_fc()
+    # checkpoint = torch.load('/home/ai2020/ne6091069/Model/torch/AWA2/none_color_diff_121_abs_3ch/batch16/resnet101_resnet101/SGD/ReduceLROnPlateau/dropout0/model_best.pth.tar')
+    # ck_model.load_state_dict(checkpoint['state_dict'])
+    #
+    # names2 = []
+    # parameters2 = []
+    # for name, param in ck_model.model2.named_parameters():
+    #     names2.append(name)
+    #     parameters2.append(param.cpu().detach().numpy())
+    #
+    # # print(model)
+    # # get all layer names and weights
     # names = []
     # parameters = []
-    # for name, param in model.named_parameters():
+    # for name, param in model.model2.named_parameters():
     #     names.append(name)
     #     parameters.append(param.cpu().detach().numpy())
+    #
+    # if len(names) != len(names2):
+    #     raise RuntimeError
+    # if len(parameters) != len(parameters2):
+    #     raise RuntimeError
+    # for i in range(len(names)):
+    #     if names[i] != names2[i]:
+    #         raise RuntimeError
+    # for i in range(len(parameters)):
+    #     compare = parameters[i] == parameters2[i]
+    #     if not compare.all():
+    #         raise RuntimeError
+    # print('all weights the same')
 
     cudnn.benchmark = True
 
@@ -522,8 +549,14 @@ def train(train_loader, model, criterion, optimizer, epoch, log_rec, args):
             target = target.cuda(args.gpu, non_blocking=True)
 
         # compute output
-        output = model(images)
-        loss = criterion(output, target)
+        if configure.ina_type is None:
+            output = model(images)
+            loss = criterion(output, target)
+        else:
+            output, model1_feature, model2_feature = model(images)
+            loss1 = criterion(output, target)
+            loss2 = criterion(model1_feature, model2_feature)
+            loss = loss1 * configure.ina_loss_weight1 + loss2 * configure.ina_loss_weight2
 
         # measure accuracy and record loss
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
@@ -581,8 +614,14 @@ def validate(val_loader, model, criterion, log_rec, args):
                 target = target.cuda(args.gpu, non_blocking=True)
 
             # compute output
-            output = model(images)
-            loss = criterion(output, target)
+            if configure.ina_type is None:
+                output = model(images)
+                loss = criterion(output, target)
+            else:
+                output, model1_feature, model2_feature = model(images)
+                loss1 = criterion(output, target)
+                loss2 = criterion(model1_feature, model2_feature)
+                loss = loss1 * configure.ina_loss_weight1 + loss2 * configure.ina_loss_weight2
 
             # measure accuracy and record loss
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
@@ -609,7 +648,7 @@ def validate(val_loader, model, criterion, log_rec, args):
 
 
 def save_checkpoint(state, is_best, epoch):
-    filename = 'checkpoint_epoch' + epoch + '.pth.tar'
+    filename = 'checkpoint.pth.tar'
     torch.save(state, configure.ckpt_dir + filename)
     if is_best:
         shutil.copyfile(configure.ckpt_dir + filename, configure.ckpt_dir + 'model_best.pth.tar')
