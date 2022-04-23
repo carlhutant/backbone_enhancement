@@ -648,7 +648,7 @@ def validate(val_loader, model, criterion, log_rec, args):
 
 
 def save_checkpoint(state, is_best, epoch):
-    filename = 'checkpoint_epoch' + epoch + '.pth.tar'
+    filename = 'checkpoint.pth.tar'
     torch.save(state, configure.ckpt_dir + filename)
     if is_best:
         shutil.copyfile(configure.ckpt_dir + filename, configure.ckpt_dir + 'model_best.pth.tar')
