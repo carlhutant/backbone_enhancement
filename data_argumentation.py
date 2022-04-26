@@ -44,6 +44,37 @@ class ColorDiff121abs3ch:
         return f"{self.__class__.__name__}()"
 
 
+class ColorDiff121abs1ch:
+    def __init__(self) -> None:
+        self.horizontal_filter = torch.tensor([[1, 0, -1],
+                                               [2, 0, -2],
+                                               [1, 0, -1]], dtype=torch.float)
+        self.vertical_filter = torch.tensor([[1, 2, 1],
+                                             [0, 0, 0],
+                                             [-1, -2, -1]], dtype=torch.float)
+        self.horizontal_filter = self.horizontal_filter.unsqueeze(0)
+        self.horizontal_filter = self.horizontal_filter.unsqueeze(0)
+        self.vertical_filter = self.vertical_filter.unsqueeze(0)
+        self.vertical_filter = self.vertical_filter.unsqueeze(0)
+
+    def __call__(self, pic):
+        pic = pic.unsqueeze(1)
+        h_pic = torch.nn.functional.conv2d(input=pic, weight=self.horizontal_filter, stride=1, padding=0)
+        v_pic = torch.nn.functional.conv2d(input=pic, weight=self.vertical_filter, stride=1, padding=0)
+        h_pic = torch.abs(h_pic)
+        v_pic = torch.abs(v_pic)
+        h_pic = h_pic.squeeze()
+        v_pic = v_pic.squeeze()
+        pic = torch.add(h_pic, v_pic)
+        pic = torch.div(pic, 8)
+        pic = torch.mean(pic, dim=0)
+        pic = torch.unsqueeze(pic, dim=0)
+        return pic
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+
 class AppendColorDiff121abs3ch:
     def __init__(self) -> None:
         self.identify_filter = torch.tensor([[[[0, 0, 0],
@@ -86,6 +117,57 @@ class AppendColorDiff121abs3ch:
         v_pic = v_pic.squeeze()
         pic = torch.add(h_pic, v_pic)
         pic = torch.div(pic, 8)
+        pic = torch.mean(pic, dim=0)
+        pic = torch.concat([i_pic, pic], dim=0)
+        return pic
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+
+class AppendColorDiff121abs1ch:
+    def __init__(self) -> None:
+        self.identify_filter = torch.tensor([[[[0, 0, 0],
+                                               [0, 1, 0],
+                                               [0, 0, 0]]],
+                                             [[[0, 0, 0],
+                                               [0, 1, 0],
+                                               [0, 0, 0]]],
+                                             [[[0, 0, 0],
+                                               [0, 1, 0],
+                                               [0, 0, 0]]]], dtype=torch.float)
+        self.horizontal_filter = torch.tensor([[[[1, 0, -1],
+                                                 [2, 0, -2],
+                                                 [1, 0, -1]]],
+                                               [[[1, 0, -1],
+                                                 [2, 0, -2],
+                                                 [1, 0, -1]]],
+                                               [[[1, 0, -1],
+                                                 [2, 0, -2],
+                                                 [1, 0, -1]]],], dtype=torch.float)
+        self.vertical_filter = torch.tensor([[[[1, 2, 1],
+                                               [0, 0, 0],
+                                               [-1, -2, -1]]],
+                                             [[[1, 2, 1],
+                                               [0, 0, 0],
+                                               [-1, -2, -1]]],
+                                             [[[1, 2, 1],
+                                               [0, 0, 0],
+                                               [-1, -2, -1]]]], dtype=torch.float)
+
+    def __call__(self, pic):
+        pic = pic.unsqueeze(0)
+        i_pic = torch.nn.functional.conv2d(input=pic, weight=self.identify_filter, stride=1, padding=0, groups=3)
+        h_pic = torch.nn.functional.conv2d(input=pic, weight=self.horizontal_filter, stride=1, padding=0, groups=3)
+        v_pic = torch.nn.functional.conv2d(input=pic, weight=self.vertical_filter, stride=1, padding=0, groups=3)
+        h_pic = torch.abs(h_pic)
+        v_pic = torch.abs(v_pic)
+        i_pic = i_pic.squeeze()
+        h_pic = h_pic.squeeze()
+        v_pic = v_pic.squeeze()
+        pic = torch.add(h_pic, v_pic)
+        pic = torch.div(pic, 8)
+        pic = torch.unsqueeze(pic, dim=0)
         pic = torch.concat([i_pic, pic], dim=0)
         return pic
 

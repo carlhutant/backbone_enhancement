@@ -319,6 +319,9 @@ def main_worker(gpu, ngpus_per_node, args):
     elif configure.data_advance1 == 'color_diff_121_abs_3ch':
         normalize = transforms.Normalize(mean=[0.043, 0.043, 0.043],
                                          std=[0.047, 0.047, 0.047])
+    elif configure.data_advance1 == 'color_diff_121_abs_1ch':
+        normalize = transforms.Normalize(mean=[0.043],
+                                         std=[0.047])
     else:
         raise RuntimeError
 
@@ -335,11 +338,19 @@ def main_worker(gpu, ngpus_per_node, args):
                                                                    ratio=(configure.train_crop_ratio,
                                                                           configure.train_crop_ratio)))
             train_compose_list.append(data_argumentation.AppendColorDiff121abs3ch())
+        elif configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_1ch':
+            train_compose_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h + 2,
+                                                                         configure.train_crop_w + 2),
+                                                                   scale=(configure.train_resize_area_ratio_min,
+                                                                          configure.train_resize_area_ratio_max),
+                                                                   ratio=(configure.train_crop_ratio,
+                                                                          configure.train_crop_ratio)))
+            train_compose_list.append(data_argumentation.AppendColorDiff121abs1ch())
         else:
             raise RuntimeError
     else:
         # 若有使用 conv2D 則 crop 時要留 padding 的空間
-        if configure.data_advance1 == 'color_diff_121_abs_3ch':
+        if configure.data_advance1.startswith('color_diff_121_abs'):
             configure.train_crop_h += 2
             configure.train_crop_w += 2
 
@@ -362,6 +373,8 @@ def main_worker(gpu, ngpus_per_node, args):
             pass
         elif configure.data_advance1 == 'color_diff_121_abs_3ch':
             train_compose_list.append(data_argumentation.ColorDiff121abs3ch())
+        elif configure.data_advance1 == 'color_diff_121_abs_1ch':
+            train_compose_list.append(data_argumentation.ColorDiff121abs1ch())
         else:
             raise RuntimeError
 
@@ -382,11 +395,19 @@ def main_worker(gpu, ngpus_per_node, args):
                                                                  ratio=(configure.val_crop_ratio,
                                                                         configure.val_crop_ratio)))
             val_compose_list.append(data_argumentation.AppendColorDiff121abs3ch())
+        elif configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_1ch':
+            val_compose_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h + 2,
+                                                                       configure.val_crop_w + 2),
+                                                                 scale=(configure.val_resize_area_ratio_min,
+                                                                        configure.val_resize_area_ratio_max),
+                                                                 ratio=(configure.val_crop_ratio,
+                                                                        configure.val_crop_ratio)))
+            val_compose_list.append(data_argumentation.AppendColorDiff121abs1ch())
         else:
             raise RuntimeError
     else:
         # 若有使用 conv2D 則 crop 時要留 padding 的空間
-        if configure.data_advance1 == 'color_diff_121_abs_3ch':
+        if configure.data_advance1.startswith('color_diff_121_abs'):
             configure.val_crop_h += 2
             configure.val_crop_w += 2
 
@@ -406,6 +427,8 @@ def main_worker(gpu, ngpus_per_node, args):
             pass
         elif configure.data_advance1 == 'color_diff_121_abs_3ch':
             val_compose_list.append(data_argumentation.ColorDiff121abs3ch())
+        elif configure.data_advance1 == 'color_diff_121_abs_1ch':
+            val_compose_list.append(data_argumentation.ColorDiff121abs1ch())
         else:
             raise RuntimeError
 
@@ -455,9 +478,16 @@ def main_worker(gpu, ngpus_per_node, args):
             for instance_No in range(args.batch_size):
                 (image_tensor, label_tensor) = (batch_instance[0][instance_No], batch_instance[1][instance_No])
                 channel_first_image = np.array(image_tensor, dtype=float)
-                channel_r = channel_first_image[0, ..., np.newaxis] * 255
-                channel_g = channel_first_image[1, ..., np.newaxis] * 255
-                channel_b = channel_first_image[2, ..., np.newaxis] * 255
+                if configure.channel == 3:
+                    channel_r = channel_first_image[0, ..., np.newaxis] * 255
+                    channel_g = channel_first_image[1, ..., np.newaxis] * 255
+                    channel_b = channel_first_image[2, ..., np.newaxis] * 255
+                elif configure.channel == 1:
+                    channel_r = channel_first_image[0, ..., np.newaxis] * 255
+                    channel_g = channel_first_image[0, ..., np.newaxis] * 255
+                    channel_b = channel_first_image[0, ..., np.newaxis] * 255
+                else:
+                    raise RuntimeError
                 image = np.concatenate((channel_r, channel_g, channel_b), axis=-1)
                 image = np.array(image, dtype=np.uint8)
                 label = label_tensor.item()
