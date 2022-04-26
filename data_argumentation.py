@@ -117,7 +117,6 @@ class AppendColorDiff121abs3ch:
         v_pic = v_pic.squeeze()
         pic = torch.add(h_pic, v_pic)
         pic = torch.div(pic, 8)
-        pic = torch.mean(pic, dim=0)
         pic = torch.concat([i_pic, pic], dim=0)
         return pic
 
@@ -167,6 +166,7 @@ class AppendColorDiff121abs1ch:
         v_pic = v_pic.squeeze()
         pic = torch.add(h_pic, v_pic)
         pic = torch.div(pic, 8)
+        pic = torch.mean(pic, dim=0)
         pic = torch.unsqueeze(pic, dim=0)
         pic = torch.concat([i_pic, pic], dim=0)
         return pic
