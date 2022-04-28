@@ -12,6 +12,7 @@ import log_record
 import data_argumentation
 import ResNet
 import concat_backbone
+import finetune
 
 import numpy as np
 import torch
@@ -174,15 +175,18 @@ def main_worker(gpu, ngpus_per_node, args):
                 model = ResNet.resnet50(configure.model_mode1)
             elif args.arch == 'resnet101':
                 model = ResNet.resnet101(configure.model_mode1)
+            elif args.arch.endswith('finetune'):
+                model = finetune.FineTuneResNet(configure.model_mode1)
             else:
                 raise RuntimeError
         else:
-            if args.pretrained:
-                print("=> using pre-trained model '{}'".format(args.arch))
-                model = models.__dict__[args.arch](pretrained=True)
-            else:
-                print("=> creating model '{}'".format(args.arch))
-                model = models.__dict__[args.arch]()
+            raise RuntimeError
+            # if args.pretrained:
+            #     print("=> using pre-trained model '{}'".format(args.arch))
+            #     model = models.__dict__[args.arch](pretrained=True)
+            # else:
+            #     print("=> creating model '{}'".format(args.arch))
+            #     model = models.__dict__[args.arch]()
 
     if not torch.cuda.is_available():
         print('using CPU, this will be slow')
@@ -241,6 +245,8 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.resume:
         if configure.multi_model and configure.resume_ckpt_path2 is not None:
             model.load(configure.resume_ckpt_path1, configure.resume_ckpt_path2, args)
+        elif configure.model1.endswith('finetune'):
+            model.load(configure.resume_ckpt_path1, args)
         else:
             if os.path.isfile(args.resume):
                 print("=> loading checkpoint '{}'".format(args.resume))
@@ -268,14 +274,15 @@ def main_worker(gpu, ngpus_per_node, args):
         model.remove_fc()
 
     # # create check weight model 用來確認 concat 的 backbone 有被 fix
-    # ck_model = concat_backbone.ConcatResNet50()
-    # ck_model.remove_fc()
-    # checkpoint = torch.load('/home/ai2020/ne6091069/Model/torch/AWA2/none_color_diff_121_abs_3ch/batch16/resnet101_resnet101/SGD/ReduceLROnPlateau/dropout0/model_best.pth.tar')
+    # ck_model = ResNet.resnet50('none')
+    # # ck_model.remove_fc()
+    # checkpoint = torch.load('E:/Download/old_model_best.pth.tar')
     # ck_model.load_state_dict(checkpoint['state_dict'])
+    # ck_model = torch.nn.Sequential(*list(ck_model.children())[:-1])
     #
     # names2 = []
     # parameters2 = []
-    # for name, param in ck_model.model2.named_parameters():
+    # for name, param in ck_model.named_parameters():
     #     names2.append(name)
     #     parameters2.append(param.cpu().detach().numpy())
     #
