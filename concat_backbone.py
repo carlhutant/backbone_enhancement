@@ -52,7 +52,7 @@ class ConcatResNet50(nn.Module):
 
     def load(self, path1, path2, args):
         load_model_list = []
-        if configure.ina_type is None:
+        if configure.ina_type is None or configure.ina_type == 'fc_only':
             load_model_list.append((self.model1, path1))
         load_model_list.append((self.model2, path2))
 
@@ -120,6 +120,8 @@ class ConcatResNet50(nn.Module):
                     raise RuntimeError
                 split_x1 = torch.split(x1, [x2.size(1), x2.size(1)], dim=1)[0]
                 return x, split_x1, x2
+            elif configure.ina_type == 'fc_only':
+                return x, x1, x2
             else:
                 raise RuntimeError
 
