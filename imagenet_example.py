@@ -220,7 +220,6 @@ def main_worker(gpu, ngpus_per_node, args):
             model = torch.nn.DataParallel(model).cuda()
 
     # print(model)
-
     # for name, param in model.named_parameters():
     #     a = 0
 
@@ -245,7 +244,7 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.resume:
         if configure.multi_model and configure.resume_ckpt_path2 is not None:
             model.load(configure.resume_ckpt_path1, configure.resume_ckpt_path2, args)
-        elif configure.model1.endswith('finetune'):
+        elif configure.model1.endswith('finetune') and 'finetune' not in configure.resume_ckpt_path1:
             model.load(configure.resume_ckpt_path1, args)
         else:
             if os.path.isfile(args.resume):
@@ -261,7 +260,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 if args.gpu is not None:
                     # best_acc1 may be from a checkpoint from a different GPU
                     best_acc1 = best_acc1.to(args.gpu)
-                if configure.multi_model:
+                if configure.multi_model or configure.model1.endswith('finetune'):
                     model.remove_fc()
                 model.load_state_dict(checkpoint['state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
@@ -273,9 +272,10 @@ def main_worker(gpu, ngpus_per_node, args):
     if configure.multi_model:
         model.remove_fc()
 
+    # # print(model)
     # # create check weight model 用來確認 concat 的 backbone 有被 fix
     # ck_model = ResNet.resnet50('none')
-    # # ck_model.remove_fc()
+    # # print(ck_model)
     # checkpoint = torch.load('E:/Download/old_model_best.pth.tar')
     # ck_model.load_state_dict(checkpoint['state_dict'])
     # ck_model = torch.nn.Sequential(*list(ck_model.children())[:-1])
@@ -290,7 +290,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # # get all layer names and weights
     # names = []
     # parameters = []
-    # for name, param in model.model2.named_parameters():
+    # for name, param in model.backbone.named_parameters():
     #     names.append(name)
     #     parameters.append(param.cpu().detach().numpy())
     #

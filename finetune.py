@@ -11,7 +11,6 @@ class FineTuneResNet(nn.Module):
     def __init__(self, model_mode: str) -> None:
         super().__init__()
         self.fc_removed = False
-        self.model_mode = model_mode
 
         # 建立 models
         if configure.multi_model:
@@ -22,6 +21,14 @@ class FineTuneResNet(nn.Module):
             self.model = ResNet.resnet101(model_mode)
         else:
             raise RuntimeError
+        # self.remove_fc()
+
+        # 建立剩下的 FC
+        if model_mode == 'half':
+            fc_channel = 1024
+        else:
+            fc_channel = 2048
+        self.fc = torch.nn.Linear(fc_channel, configure.class_num)
 
     def load(self, path, args):
         if os.path.isfile(path):
@@ -41,19 +48,27 @@ class FineTuneResNet(nn.Module):
         else:
             print("=> no checkpoint found at '{}'".format(path))
             raise RuntimeError
-        self.model.requires_grad_(False)
+
         self.remove_fc()
 
     def remove_fc(self):
-        # 建立剩下的 FC
         if not self.fc_removed:
-            if self.model_mode == 'half':
-                fc_channel = 1024
-            else:
-                fc_channel = 2048
-            self.model.fc = torch.nn.Linear(fc_channel, configure.class_num)
+            self.backbone = torch.nn.Sequential(*list(self.model.children())[:-1])
+            self.backbone.requires_grad_(False)
             self.fc_removed = True
+            self.backbone.requires_grad_(False)
 
     def forward(self, x: Tensor):
-        x = self.model(x)
+        x = self.backbone(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
         return x
+
+    def ck_fc(self):
+        print(self)
+        names = []
+        parameters = []
+        for name, param in self.named_parameters():
+            names.append(name)
+            parameters.append(param)
+        stop = 1
