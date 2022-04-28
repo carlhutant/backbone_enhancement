@@ -167,7 +167,7 @@ def main_worker(gpu, ngpus_per_node, args):
                                 world_size=args.world_size, rank=args.rank)
     # create model
     if configure.multi_model:
-        model = concat_backbone.ConcatResNet50()
+        model = concat_backbone.ConcatResNet()
     else:
         # if False:
         if args.arch.startswith('resnet'):

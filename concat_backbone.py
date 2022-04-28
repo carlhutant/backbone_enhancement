@@ -8,7 +8,7 @@ import configure
 from torch import Tensor
 
 
-class ConcatResNet50(nn.Module):
+class ConcatResNet(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.fc_removed = False
