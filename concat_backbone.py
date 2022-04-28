@@ -29,7 +29,7 @@ class ConcatResNet50(nn.Module):
         else:
             raise RuntimeError
 
-        if configure.ina_type is None:
+        if configure.ina_type is None or configure.ina_type == 'fc_only':
             self.model1.requires_grad_(False)
         self.model2.requires_grad_(False)
 
