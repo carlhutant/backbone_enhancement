@@ -11,50 +11,42 @@ from torch import Tensor
 class ConcatResNet(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.fc_removed = False
-
         # 建立 models
-        if not configure.multi_model:
+        if not configure.model_num > 1:
             raise RuntimeError
-        if configure.model1 == 'resnet50':
-            self.model1 = ResNet.resnet50(configure.model_mode1)
-        elif configure.model1 == 'resnet101':
-            self.model1 = ResNet.resnet101(configure.model_mode1)
-        else:
-            raise RuntimeError
-        if configure.model2 == 'resnet50':
-            self.model2 = ResNet.resnet50(configure.model_mode2)
-        elif configure.model2 == 'resnet101':
-            self.model2 = ResNet.resnet101(configure.model_mode2)
-        else:
-            raise RuntimeError
-
-        if configure.ina_type is None or configure.ina_type == 'fc_only':
-            self.model1.requires_grad_(False)
-        self.model2.requires_grad_(False)
+        self.model_list = torch.nn.ModuleList()
+        for i in range(configure.model_num):
+            configure.model_mode[i] += '_removeFC'
+            if configure.model[i] == 'resnet50':
+                self.model_list.append(ResNet.resnet50(i))
+            elif configure.model[i] == 'resnet101':
+                self.model_list.append(ResNet.resnet101(i))
+            else:
+                raise RuntimeError
+            if 'fix_backbone' in configure.model_mode[i]:
+                self.model_list[i].requires_grad_(False)
 
         if configure.ina_type is None:
             self.dropout = torch.nn.Dropout(p=configure.dropout_rate)
 
         # 建立剩下的 FC
         if configure.ina_type is None:
-            fc_channel = 4096
-            if configure.model_mode1 == 'half':
-                fc_channel -= 1024
-            if configure.model_mode2 == 'half':
-                fc_channel -= 1024
+            fc_channel = configure.output_channel
         else:
-            if configure.model_mode1 == 'half':
-                fc_channel = 1024
-            else:
-                fc_channel = 2048
+            fc_channel = configure.output_channel_list[0]
         self.fc = torch.nn.Linear(fc_channel, configure.class_num)
 
-    def load(self, path1, path2, args):
+    def load(self, args):
         load_model_list = []
-        if configure.ina_type is None or configure.ina_type == 'fc_only':
-            load_model_list.append((self.model1, path1))
-        load_model_list.append((self.model2, path2))
+        if len(configure.resume_ckpt_path) == 1:
+            print('loading entire model...')
+            load_model_list.append((self, configure.resume_ckpt_path[0]))
+        elif len(configure.resume_ckpt_path) == configure.model_num:
+            print('loading multiple backbone...')
+            for i in range(configure.model_num):
+                load_model_list.append((self.model_list[i], configure.resume_ckpt_path[0]))
+        else:
+            raise RuntimeError
 
         for model, path in load_model_list:
             if os.path.isfile(path):
@@ -76,7 +68,6 @@ class ConcatResNet(nn.Module):
                 print("=> no checkpoint found at '{}'".format(path))
                 raise RuntimeError
 
-        self.remove_fc()
         # get all layer names and weights
         # names1 = []
         # parameters1 = []
@@ -91,39 +82,36 @@ class ConcatResNet(nn.Module):
         #     parameters2.append(param.cpu().detach().numpy())
         # stop = 1
 
-    def remove_fc(self):
-        if not self.fc_removed:
-            self.model1 = torch.nn.Sequential(*list(self.model1.children())[:-1])
-            self.model2 = torch.nn.Sequential(*list(self.model2.children())[:-1])
-            self.fc_removed = True
-
     def forward(self, x: Tensor):
-        data1, data2 = torch.split(x, [3, 3], dim=1)
-        x1 = self.model1(data1)
-        x2 = self.model2(data2)
+        data = torch.split(x, configure.input_channel_list, dim=1)
+        feature = []
+        for i in range(configure.model_num):
+            feature.append(self.model_list[i](data[i]))
         if configure.ina_type is None:
-            x = torch.concat([x1, x2], dim=1)
+            x = torch.concat(feature, dim=1)
             x = torch.flatten(x, 1)
             x = self.dropout(x)
             x = self.fc(x)
-        else:
-            x = torch.flatten(x1, 1)
-            x = self.fc(x)
-
-        if configure.ina_type is None:
             return x
-        else:
-            if configure.ina_type == 'full':
-                return x, x1, x2
-            elif configure.ina_type == 'half':
-                if x1.size(1) != x2.size(1) * 2:
-                    raise RuntimeError
-                split_x1 = torch.split(x1, [x2.size(1), x2.size(1)], dim=1)[0]
-                return x, split_x1, x2
-            elif configure.ina_type == 'fc_only':
-                return x, x1, x2
-            else:
-                raise RuntimeError
+
+        predict = self.fc(feature[0])
+
+        feature_pair_list = []
+        for pair in configure.loss_pair_list:
+            feature_pair_list.append((feature[pair['model'][0]][..., pair['start'][0]:pair['end'][0]+1],
+                                      feature[pair['model'][1]][..., pair['start'][1]:pair['end'][1]+1]))
+        return predict, feature_pair_list
+        # if configure.ina_type == 'full':
+        #     return x, x1, x2
+        # elif configure.ina_type == 'half':
+        #     if x1.size(1) != x2.size(1) * 2:
+        #         raise RuntimeError
+        #     split_x1 = torch.split(x1, [x2.size(1), x2.size(1)], dim=1)[0]
+        #     return x, split_x1, x2
+        # elif configure.ina_type == 'fc_only':
+        #     return x, x1, x2
+        # else:
+        #     raise RuntimeError
 
     def ck_fc(self):
         print(self)
