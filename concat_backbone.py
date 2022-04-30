@@ -48,7 +48,8 @@ class ConcatResNet(nn.Module):
         else:
             raise RuntimeError
 
-        for model, path in load_model_list:
+        for i in range(len(load_model_list)):
+            model, path = load_model_list[i]
             if os.path.isfile(path):
                 print("=> loading checkpoint '{}'".format(path))
                 if args.gpu is None:
@@ -64,6 +65,8 @@ class ConcatResNet(nn.Module):
                 model.load_state_dict(checkpoint['state_dict'])
                 print("=> loaded checkpoint '{}' (epoch {})"
                       .format(path, checkpoint['epoch']))
+            elif path is None:
+                print("model {} training on random parameter".format(i))
             else:
                 print("=> no checkpoint found at '{}'".format(path))
                 raise RuntimeError
