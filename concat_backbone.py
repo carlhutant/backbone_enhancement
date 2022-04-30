@@ -51,7 +51,7 @@ class ConcatResNet(nn.Module):
         for i in range(len(load_model_list)):
             model, path = load_model_list[i]
             if path is None:
-                print("model {} training on random parameter".format(i))
+                print("=> model {} training on random parameter".format(i))
             elif os.path.isfile(path):
                 print("=> loading checkpoint '{}'".format(path))
                 if args.gpu is None:
