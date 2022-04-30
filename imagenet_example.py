@@ -281,7 +281,7 @@ def main_worker(gpu, ngpus_per_node, args):
     #     names2.append(name)
     #     parameters2.append(param.cpu().detach().numpy())
     #
-    # # print(model)
+    # print(model)
     # # get all layer names and weights
     # names = []
     # parameters = []
