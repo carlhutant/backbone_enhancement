@@ -167,7 +167,7 @@ class ResNet(nn.Module):
         self,
         block: Type[Union[BasicBlock, Bottleneck]],
         layers: List[int],
-        model_mode: str,
+        model_id: int,
         num_classes: int = configure.class_num,
         zero_init_residual: bool = False,
         groups: int = 1,
@@ -176,6 +176,7 @@ class ResNet(nn.Module):
         norm_layer: Optional[Callable[..., nn.Module]] = None,
     ) -> None:
         super().__init__()
+        self.model_id = model_id
         # _log_api_usage_once(self)
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
@@ -194,11 +195,11 @@ class ResNet(nn.Module):
             )
         self.groups = groups
         self.base_width = width_per_group
-        self.conv1 = nn.Conv2d(configure.channel, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(configure.input_channel_list[model_id], self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
-        if model_mode == 'half':
+        if 'half' in configure.model_mode[model_id]:
             self.layer1 = self._make_layer(block, 32, layers[0])
             self.layer2 = self._make_layer(block, 64, layers[1], stride=2, dilate=replace_stride_with_dilation[0])
             self.layer3 = self._make_layer(block, 128, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
@@ -209,7 +210,7 @@ class ResNet(nn.Module):
             self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
             self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        if model_mode == 'half':
+        if 'half' in configure.model_mode[model_id]:
             self.fc = nn.Linear(256 * block.expansion, num_classes)
         else:
             self.fc = nn.Linear(512 * block.expansion, num_classes)
@@ -251,12 +252,9 @@ class ResNet(nn.Module):
                 norm_layer(planes * block.expansion),
             )
 
-        layers = []
-        layers.append(
-            block(
-                self.inplanes, planes, stride, downsample, self.groups, self.base_width, previous_dilation, norm_layer
-            )
-        )
+        layers = [block(
+            self.inplanes, planes, stride, downsample, self.groups, self.base_width, previous_dilation, norm_layer
+        )]
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
             layers.append(
@@ -286,7 +284,8 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        x = self.fc(x)
+        if 'removeFC' not in configure.model_mode[self.model_id]:
+            x = self.fc(x)
 
         return x
 
@@ -300,10 +299,10 @@ def _resnet(
     layers: List[int],
     pretrained: bool,
     progress: bool,
-    model_mode: str,
+    model_id: int,
     **kwargs: Any,
 ) -> ResNet:
-    model = ResNet(block, layers, model_mode,  **kwargs)
+    model = ResNet(block, layers, model_id,  **kwargs)
     # if pretrained:
     #     state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
     #     model.load_state_dict(state_dict)
@@ -332,26 +331,28 @@ def resnet34(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> 
     return _resnet("resnet34", BasicBlock, [3, 4, 6, 3], pretrained, progress, **kwargs)
 
 
-def resnet50(model_mode: str, pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
+def resnet50(model_id: int = 0, pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
     r"""ResNet-50 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_.
 
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
+        model_id (int): 用來在 configure.py 查詢設定參數
     """
-    return _resnet("resnet50", Bottleneck, [3, 4, 6, 3], pretrained, progress, model_mode, **kwargs)
+    return _resnet("resnet50", Bottleneck, [3, 4, 6, 3], pretrained, progress, model_id, **kwargs)
 
 
-def resnet101(model_mode: str, pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
+def resnet101(model_id: int = 0, pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:
     r"""ResNet-101 model from
     `"Deep Residual Learning for Image Recognition" <https://arxiv.org/pdf/1512.03385.pdf>`_.
 
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
+        model_id (int): 用來在 configure.py 查詢設定參數
     """
-    return _resnet("resnet101", Bottleneck, [3, 4, 23, 3], pretrained, progress, model_mode, **kwargs)
+    return _resnet("resnet101", Bottleneck, [3, 4, 23, 3], pretrained, progress, model_id, **kwargs)
 
 
 def resnet152(pretrained: bool = False, progress: bool = True, **kwargs: Any) -> ResNet:

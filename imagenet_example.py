@@ -12,6 +12,7 @@ import log_record
 import data_argumentation
 import ResNet
 import concat_backbone
+import finetune
 
 import numpy as np
 import torch
@@ -36,7 +37,7 @@ model_names = sorted(name for name in models.__dict__
 parser = argparse.ArgumentParser(description='PyTorch Backbone Training')
 parser.add_argument('--data', metavar='DIR', default=configure.data_dir,
                     help='path to dataset (default: imagenet)')
-parser.add_argument('-a', '--arch', metavar='ARCH', default=configure.model1,
+parser.add_argument('-a', '--arch', metavar='ARCH', default=configure.model,
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
@@ -61,8 +62,6 @@ parser.add_argument('--wd', '--weight-decay', default=configure.weight_decay, ty
                     dest='weight_decay')
 parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--resume', default=configure.resume_ckpt_path1, type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', default=configure.evaluate_only, dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
@@ -122,24 +121,24 @@ def main():
         mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
     else:
         if configure.swap_evaluate:
-            order_list = []
-            if configure.multi_model or configure.multi_data_advance:
-                order_list.append([0, 1, 2, 3, 4, 5])
-                order_list.append([0, 2, 1, 3, 5, 4])
-                order_list.append([1, 0, 2, 4, 3, 5])
-                order_list.append([1, 2, 0, 4, 5, 3])
-                order_list.append([2, 0, 1, 5, 3, 4])
-                order_list.append([2, 1, 0, 5, 4, 3])
-            else:
-                order_list.append([0, 1, 2])
-                order_list.append([0, 2, 1])
-                order_list.append([1, 0, 2])
-                order_list.append([1, 2, 0])
-                order_list.append([2, 0, 1])
-                order_list.append([2, 1, 0])
-            for order in order_list:
-                configure.rgb_swap_order1 = order
-                print('order:{}'.format(configure.rgb_swap_order1))
+            head = 0
+            origin_list = [[0, 1, 2],
+                           [0, 2, 1],
+                           [1, 0, 2],
+                           [1, 2, 0],
+                           [2, 0, 1],
+                           [2, 1, 0]]
+            for origin in origin_list:
+                order = []
+                for model_No in range(configure.model_num):
+                    if '1ch' in configure.data_advance[model_No]:
+                        order.append(head)
+                        head += 1
+                    else:
+                        order += [x + head for x in origin]
+                        head += 3
+                configure.rgb_swap_order = order
+                print('order:{}'.format(configure.rgb_swap_order))
                 main_worker(args.gpu, ngpus_per_node, args)
         else:
             # Simply call main_worker function
@@ -165,24 +164,28 @@ def main_worker(gpu, ngpus_per_node, args):
         dist.init_process_group(backend=args.dist_backend, init_method=args.dist_url,
                                 world_size=args.world_size, rank=args.rank)
     # create model
-    if configure.multi_model:
-        model = concat_backbone.ConcatResNet50()
+    if configure.model_num < 1:
+        raise RuntimeError
+    elif configure.model_num > 1:
+        model = concat_backbone.ConcatResNet()
     else:
-        # if False:
-        if args.arch.startswith('resnet'):
-            if args.arch == 'resnet50':
-                model = ResNet.resnet50(configure.model_mode1)
-            elif args.arch == 'resnet101':
-                model = ResNet.resnet101(configure.model_mode1)
+        if 'resnet' in args.arch[0]:
+            if 'fix_backbone' in configure.model_mode[0]:
+                model = finetune.FineTuneResNet(model_id=0)
+            elif args.arch[0] == 'resnet50':
+                model = ResNet.resnet50(model_id=0)
+            elif args.arch[0] == 'resnet101':
+                model = ResNet.resnet101(model_id=0)
             else:
                 raise RuntimeError
         else:
-            if args.pretrained:
-                print("=> using pre-trained model '{}'".format(args.arch))
-                model = models.__dict__[args.arch](pretrained=True)
-            else:
-                print("=> creating model '{}'".format(args.arch))
-                model = models.__dict__[args.arch]()
+            raise RuntimeError
+            # if args.pretrained:
+            #     print("=> using pre-trained model '{}'".format(args.arch))
+            #     model = models.__dict__[args.arch](pretrained=True)
+            # else:
+            #     print("=> creating model '{}'".format(args.arch))
+            #     model = models.__dict__[args.arch]()
 
     if not torch.cuda.is_available():
         print('using CPU, this will be slow')
@@ -215,8 +218,7 @@ def main_worker(gpu, ngpus_per_node, args):
         else:
             model = torch.nn.DataParallel(model).cuda()
 
-    # print(model)
-
+    print(model)
     # for name, param in model.named_parameters():
     #     a = 0
 
@@ -228,54 +230,54 @@ def main_worker(gpu, ngpus_per_node, args):
                                 weight_decay=args.weight_decay)
 
     # LR scheduler
+    # ReduceLROnPlateau
     scheduler = ReduceLROnPlateau(optimizer, mode='max',
                                   factor=configure.factor,
                                   patience=configure.patience,
                                   threshold=configure.threshold,
                                   verbose=True)
-    # Sets the learning rate to the initial LR decayed by 10 every 30 epochs
+    # # Sets the learning rate to the initial LR decayed by 10 every 30 epochs
     # scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
 
-    # optionally resume from a checkpoint
-
-    if args.resume:
-        if configure.multi_model and configure.resume_ckpt_path2 is not None:
-            model.load(configure.resume_ckpt_path1, configure.resume_ckpt_path2, args)
-        else:
-            if os.path.isfile(args.resume):
-                print("=> loading checkpoint '{}'".format(args.resume))
+    # resume from a checkpoint
+    if configure.resume:
+        if configure.model_num > 1:  # 使用 concat backbone
+            model.load(args)
+        elif configure.model_num == 1 and 'fix' in configure.model_mode[0]:  # 使用 finetune
+            model.load(args)
+        else:  # 使用 ResNet
+            if os.path.isfile(configure.resume_ckpt_path[0]):
+                print("=> loading checkpoint '{}'".format(configure.resume_ckpt_path[0]))
                 if args.gpu is None:
-                    checkpoint = torch.load(args.resume)
+                    checkpoint = torch.load(configure.resume_ckpt_path[0])
                 else:
                     # Map model to be loaded to specified single gpu.
                     loc = 'cuda:{}'.format(args.gpu)
-                    checkpoint = torch.load(args.resume, map_location=loc)
+                    checkpoint = torch.load(configure.resume_ckpt_path[0], map_location=loc)
                 args.start_epoch = checkpoint['epoch']
                 best_acc1 = checkpoint['best_acc1']
                 if args.gpu is not None:
                     # best_acc1 may be from a checkpoint from a different GPU
                     best_acc1 = best_acc1.to(args.gpu)
-                if configure.multi_model:
-                    model.remove_fc()
                 model.load_state_dict(checkpoint['state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer'])
                 scheduler.load_state_dict(checkpoint['scheduler'])
                 print("=> loaded checkpoint '{}' (epoch {})"
                       .format(args.resume, checkpoint['epoch']))
             else:
-                print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path1))
-    if configure.multi_model:
-        model.remove_fc()
+                print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path[0]))
 
+    # # print(model)
     # # create check weight model 用來確認 concat 的 backbone 有被 fix
-    # ck_model = concat_backbone.ConcatResNet50()
-    # ck_model.remove_fc()
-    # checkpoint = torch.load('/home/ai2020/ne6091069/Model/torch/AWA2/none_color_diff_121_abs_3ch/batch16/resnet101_resnet101/SGD/ReduceLROnPlateau/dropout0/model_best.pth.tar')
+    # ck_model = ResNet.resnet50('none')
+    # # print(ck_model)
+    # checkpoint = torch.load('E:/Download/old_model_best.pth.tar')
     # ck_model.load_state_dict(checkpoint['state_dict'])
+    # ck_model = torch.nn.Sequential(*list(ck_model.children())[:-1])
     #
     # names2 = []
     # parameters2 = []
-    # for name, param in ck_model.model2.named_parameters():
+    # for name, param in ck_model.named_parameters():
     #     names2.append(name)
     #     parameters2.append(param.cpu().detach().numpy())
     #
@@ -283,7 +285,7 @@ def main_worker(gpu, ngpus_per_node, args):
     # # get all layer names and weights
     # names = []
     # parameters = []
-    # for name, param in model.model2.named_parameters():
+    # for name, param in model.backbone.named_parameters():
     #     names.append(name)
     #     parameters.append(param.cpu().detach().numpy())
     #
@@ -305,140 +307,141 @@ def main_worker(gpu, ngpus_per_node, args):
     # Data loading code
     train_dir = os.path.join(args.data, 'train')
     val_dir = os.path.join(args.data, 'val')
-    # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-    #                                  std=[0.229, 0.224, 0.225])
-    if configure.multi_data_advance:
-        if configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_3ch':
-            normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406, 0.043, 0.043, 0.043],
-                                             std=[0.229, 0.224, 0.225, 0.047, 0.047, 0.047])
+    # imagenet rgb mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+    mean = []
+    std = []
+    for data_advance in configure.data_advance:
+        if configure.dataset == 'AWA2':
+            if data_advance == 'none':
+                mean += [0.485, 0.456, 0.406]
+                std += [0.229, 0.224, 0.225]
+            elif data_advance == 'color_diff_121_abs_3ch':
+                mean += [0.043, 0.043, 0.043]
+                std += [0.047, 0.047, 0.047]
+            elif data_advance == 'color_diff_121_abs_1ch':
+                mean += [0.043]
+                std += [0.047]
+            else:
+                raise RuntimeError
+    normalize = transforms.Normalize(mean=mean, std=std)
+
+    train_transform_list = [transforms.ToTensor()]
+    val_transform_list = [transforms.ToTensor()]
+
+    # 設定 train_transform_list
+    if configure.data_advance_num > 1:
+        if 'color_diff_121_abs_3ch' in configure.data_advance or 'color_diff_121_abs_1ch' in configure.data_advance:
+            train_transform_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h + 2,
+                                                                           configure.train_crop_w + 2),
+                                                                     scale=(configure.train_resize_area_ratio_min,
+                                                                            configure.train_resize_area_ratio_max),
+                                                                     ratio=(configure.train_crop_ratio,
+                                                                            configure.train_crop_ratio)))
+            train_transform_list.append(data_argumentation.AppendDataAdvance())
+        # elif configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_1ch':
+        #     train_compose_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h + 2,
+        #                                                                  configure.train_crop_w + 2),
+        #                                                            scale=(configure.train_resize_area_ratio_min,
+        #                                                                   configure.train_resize_area_ratio_max),
+        #                                                            ratio=(configure.train_crop_ratio,
+        #                                                                   configure.train_crop_ratio)))
+        #     train_compose_list.append(data_argumentation.AppendColorDiff121abs1ch())
         else:
             raise RuntimeError
-    elif configure.data_advance1 == 'none':
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                         std=[0.229, 0.224, 0.225])
-    elif configure.data_advance1 == 'color_diff_121_abs_3ch':
-        normalize = transforms.Normalize(mean=[0.043, 0.043, 0.043],
-                                         std=[0.047, 0.047, 0.047])
-    elif configure.data_advance1 == 'color_diff_121_abs_1ch':
-        normalize = transforms.Normalize(mean=[0.043],
-                                         std=[0.047])
-    else:
-        raise RuntimeError
-
-    train_compose_list = [transforms.ToTensor()]
-    val_compose_list = [transforms.ToTensor()]
-
-    # 設定 train_compose_list
-    if configure.multi_data_advance:
-        if configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_3ch':
-            train_compose_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h + 2,
-                                                                         configure.train_crop_w + 2),
-                                                                   scale=(configure.train_resize_area_ratio_min,
-                                                                          configure.train_resize_area_ratio_max),
-                                                                   ratio=(configure.train_crop_ratio,
-                                                                          configure.train_crop_ratio)))
-            train_compose_list.append(data_argumentation.AppendColorDiff121abs3ch())
-        elif configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_1ch':
-            train_compose_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h + 2,
-                                                                         configure.train_crop_w + 2),
-                                                                   scale=(configure.train_resize_area_ratio_min,
-                                                                          configure.train_resize_area_ratio_max),
-                                                                   ratio=(configure.train_crop_ratio,
-                                                                          configure.train_crop_ratio)))
-            train_compose_list.append(data_argumentation.AppendColorDiff121abs1ch())
-        else:
-            raise RuntimeError
-    else:
+    elif configure.data_advance_num == 1:
         # 若有使用 conv2D 則 crop 時要留 padding 的空間
-        if configure.data_advance1.startswith('color_diff_121_abs'):
+        if 'color_diff' in configure.data_advance[0]:
             configure.train_crop_h += 2
             configure.train_crop_w += 2
 
         if configure.train_crop_type == 'random_crop':
-            train_compose_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h,
-                                                                         configure.train_crop_w),
-                                                                   scale=(configure.train_resize_area_ratio_min,
-                                                                          configure.train_resize_area_ratio_max),
-                                                                   ratio=(configure.train_crop_ratio,
-                                                                          configure.train_crop_ratio)
-                                                                   )
-                                      )
+            train_transform_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h,
+                                                                           configure.train_crop_w),
+                                                                     scale=(configure.train_resize_area_ratio_min,
+                                                                            configure.train_resize_area_ratio_max),
+                                                                     ratio=(configure.train_crop_ratio,
+                                                                            configure.train_crop_ratio)))
         elif configure.train_crop_type == 'center_crop':
-            train_compose_list.append(transforms.Resize(configure.train_resize_short_edge))
-            train_compose_list.append(transforms.CenterCrop((configure.train_crop_h, configure.train_crop_w)))
+            train_transform_list.append(transforms.Resize(configure.train_resize_short_edge))
+            train_transform_list.append(transforms.CenterCrop((configure.train_crop_h, configure.train_crop_w)))
         else:
             raise RuntimeError
 
-        if configure.data_advance1 == 'none':
+        if configure.data_advance[0] == 'none':
             pass
-        elif configure.data_advance1 == 'color_diff_121_abs_3ch':
-            train_compose_list.append(data_argumentation.ColorDiff121abs3ch())
-        elif configure.data_advance1 == 'color_diff_121_abs_1ch':
-            train_compose_list.append(data_argumentation.ColorDiff121abs1ch())
-        else:
-            raise RuntimeError
-
-    if configure.train_random_horizontal_flip:
-        train_compose_list.append(transforms.RandomHorizontalFlip())
-    if configure.rgb_swap_order1 is not None:
-        train_compose_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order1))
-    if not configure.data_sampler:
-        train_compose_list.append(normalize)
-
-    # 設定 val_compose_list
-    if configure.multi_data_advance:
-        if configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_3ch':
-            val_compose_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h + 2,
-                                                                       configure.val_crop_w + 2),
-                                                                 scale=(configure.val_resize_area_ratio_min,
-                                                                        configure.val_resize_area_ratio_max),
-                                                                 ratio=(configure.val_crop_ratio,
-                                                                        configure.val_crop_ratio)))
-            val_compose_list.append(data_argumentation.AppendColorDiff121abs3ch())
-        elif configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_1ch':
-            val_compose_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h + 2,
-                                                                       configure.val_crop_w + 2),
-                                                                 scale=(configure.val_resize_area_ratio_min,
-                                                                        configure.val_resize_area_ratio_max),
-                                                                 ratio=(configure.val_crop_ratio,
-                                                                        configure.val_crop_ratio)))
-            val_compose_list.append(data_argumentation.AppendColorDiff121abs1ch())
+        elif configure.data_advance[0] == 'color_diff_121_abs_3ch':
+            train_transform_list.append(data_argumentation.ColorDiff121abs3ch())
+        elif configure.data_advance[0] == 'color_diff_121_abs_1ch':
+            train_transform_list.append(data_argumentation.ColorDiff121abs1ch())
         else:
             raise RuntimeError
     else:
+        raise RuntimeError
+
+    if configure.train_random_horizontal_flip:
+        train_transform_list.append(transforms.RandomHorizontalFlip())
+    if configure.rgb_swap_order is not None:
+        train_transform_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order))
+    if not configure.data_sampler:
+        train_transform_list.append(normalize)
+
+    # 設定 val_transform_list
+    if configure.data_advance_num > 1:
+        if 'color_diff_121_abs_3ch' in configure.data_advance or 'color_diff_121_abs_1ch' in configure.data_advance:
+            val_transform_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h + 2,
+                                                                         configure.val_crop_w + 2),
+                                                                   scale=(configure.val_resize_area_ratio_min,
+                                                                          configure.val_resize_area_ratio_max),
+                                                                   ratio=(configure.val_crop_ratio,
+                                                                          configure.val_crop_ratio)))
+            val_transform_list.append(data_argumentation.AppendDataAdvance())
+        # elif configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_1ch':
+        #     val_transform_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h + 2,
+        #                                                                configure.val_crop_w + 2),
+        #                                                          scale=(configure.val_resize_area_ratio_min,
+        #                                                                 configure.val_resize_area_ratio_max),
+        #                                                          ratio=(configure.val_crop_ratio,
+        #                                                                 configure.val_crop_ratio)))
+        #     val_transform_list.append(data_argumentation.AppendColorDiff121abs1ch())
+        else:
+            raise RuntimeError
+    elif configure.data_advance_num == 1:
         # 若有使用 conv2D 則 crop 時要留 padding 的空間
-        if configure.data_advance1.startswith('color_diff_121_abs'):
+        if 'color_diff' in configure.data_advance[0]:
             configure.val_crop_h += 2
             configure.val_crop_w += 2
 
         if configure.val_crop_type == 'random_crop':
-            val_compose_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h, configure.val_crop_w),
-                                                                 scale=(configure.val_resize_area_ratio_min,
-                                                                        configure.val_resize_area_ratio_max),
-                                                                 ratio=(configure.val_crop_ratio,
-                                                                        configure.val_crop_ratio)))
+            val_transform_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h, configure.val_crop_w),
+                                                                   scale=(configure.val_resize_area_ratio_min,
+                                                                          configure.val_resize_area_ratio_max),
+                                                                   ratio=(configure.val_crop_ratio,
+                                                                          configure.val_crop_ratio)))
         elif configure.val_crop_type == 'center_crop':
-            val_compose_list.append(transforms.Resize(configure.val_resize_short_edge))
-            val_compose_list.append(transforms.CenterCrop((configure.val_crop_h, configure.val_crop_w)))
+            val_transform_list.append(transforms.Resize(configure.val_resize_short_edge))
+            val_transform_list.append(transforms.CenterCrop((configure.val_crop_h, configure.val_crop_w)))
         else:
             raise RuntimeError
 
-        if configure.data_advance1 == 'none':
+        if configure.data_advance[0] == 'none':
             pass
-        elif configure.data_advance1 == 'color_diff_121_abs_3ch':
-            val_compose_list.append(data_argumentation.ColorDiff121abs3ch())
-        elif configure.data_advance1 == 'color_diff_121_abs_1ch':
-            val_compose_list.append(data_argumentation.ColorDiff121abs1ch())
+        elif configure.data_advance[0] == 'color_diff_121_abs_3ch':
+            val_transform_list.append(data_argumentation.ColorDiff121abs3ch())
+        elif configure.data_advance[0] == 'color_diff_121_abs_1ch':
+            val_transform_list.append(data_argumentation.ColorDiff121abs1ch())
         else:
             raise RuntimeError
+    else:
+        raise RuntimeError
 
-    if configure.rgb_swap_order1 is not None:
-        val_compose_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order1))
+    if configure.rgb_swap_order is not None:
+        val_transform_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order))
     if not configure.data_sampler:
-        val_compose_list.append(normalize)
+        val_transform_list.append(normalize)
 
-    train_dataset = datasets.ImageFolder(train_dir, transforms.Compose(train_compose_list))
-    val_dataset = datasets.ImageFolder(val_dir, transforms.Compose(val_compose_list))
+    train_dataset = datasets.ImageFolder(train_dir, transforms.Compose(train_transform_list))
+    val_dataset = datasets.ImageFolder(val_dir, transforms.Compose(val_transform_list))
 
     if args.distributed:
         train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
@@ -478,11 +481,11 @@ def main_worker(gpu, ngpus_per_node, args):
             for instance_No in range(args.batch_size):
                 (image_tensor, label_tensor) = (batch_instance[0][instance_No], batch_instance[1][instance_No])
                 channel_first_image = np.array(image_tensor, dtype=float)
-                if configure.channel == 3:
-                    channel_r = channel_first_image[0, ..., np.newaxis] * 255
-                    channel_g = channel_first_image[1, ..., np.newaxis] * 255
-                    channel_b = channel_first_image[2, ..., np.newaxis] * 255
-                elif configure.channel == 1:
+                if configure.input_channel >= 3:
+                    channel_r = channel_first_image[3, ..., np.newaxis] * 255
+                    channel_g = channel_first_image[3, ..., np.newaxis] * 255
+                    channel_b = channel_first_image[3, ..., np.newaxis] * 255
+                elif configure.input_channel == 1:
                     channel_r = channel_first_image[0, ..., np.newaxis] * 255
                     channel_g = channel_first_image[0, ..., np.newaxis] * 255
                     channel_b = channel_first_image[0, ..., np.newaxis] * 255
@@ -503,7 +506,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 instance_count += 1
             batch_count += 1
 
-    log_rec = log_record.LogRecoder(args.resume != '')
+    log_rec = log_record.LogRecoder(configure.resume)
 
     if args.evaluate:
         validate(val_loader, model, criterion, log_rec, args)
@@ -580,16 +583,17 @@ def train(train_loader, model, criterion, optimizer, epoch, log_rec, args):
 
         # compute output
         if configure.ina_type is None:
-            output = model(images)
-            loss = criterion(output, target)
+            predict = model(images)
+            loss = criterion(predict, target)
         else:
-            output, model1_feature, model2_feature = model(images)
-            loss1 = criterion(output, target)
-            loss2 = criterion(model1_feature, model2_feature)
-            loss = loss1 * configure.ina_loss_weight1 + loss2 * configure.ina_loss_weight2
+            predict, feature_pair_list = model(images)
+            loss = criterion(predict, target) * configure.ina_loss_weight[0]
+            for loss_pair_No in configure.loss_pair_list:
+                loss += criterion(feature_pair_list[loss_pair_No][0], feature_pair_list[loss_pair_No][1])\
+                        * configure.ina_loss_weight[loss_pair_No + 1]
 
         # measure accuracy and record loss
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        acc1, acc5 = accuracy(predict, target, topk=(1, 5))
         losses.update(loss.item(), images.size(0))
         top1.update(acc1[0], images.size(0))
         # top5.update(acc5[0], images.size(0))
@@ -645,16 +649,17 @@ def validate(val_loader, model, criterion, log_rec, args):
 
             # compute output
             if configure.ina_type is None:
-                output = model(images)
-                loss = criterion(output, target)
+                predict = model(images)
+                loss = criterion(predict, target)
             else:
-                output, model1_feature, model2_feature = model(images)
-                loss1 = criterion(output, target)
-                loss2 = criterion(model1_feature, model2_feature)
-                loss = loss1 * configure.ina_loss_weight1 + loss2 * configure.ina_loss_weight2
+                predict, feature_pair_list = model(images)
+                loss = criterion(predict, target) * configure.ina_loss_weight[0]
+                for loss_pair_No in configure.loss_pair_list:
+                    loss += criterion(feature_pair_list[loss_pair_No][0], feature_pair_list[loss_pair_No][1]) \
+                            * configure.ina_loss_weight[loss_pair_No + 1]
 
             # measure accuracy and record loss
-            acc1, acc5 = accuracy(output, target, topk=(1, 5))
+            acc1, acc5 = accuracy(predict, target, topk=(1, 5))
             losses.update(loss.item(), images.size(0))
             top1.update(acc1[0], images.size(0))
             # top5.update(acc5[0], images.size(0))

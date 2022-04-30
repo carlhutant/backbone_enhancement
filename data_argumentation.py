@@ -3,6 +3,8 @@ import torchvision.transforms as transforms
 import torch
 import cv2
 
+import configure
+
 
 class ColorDiff121abs3ch:
     def __init__(self) -> None:
@@ -169,6 +171,30 @@ class AppendColorDiff121abs1ch:
         pic = torch.mean(pic, dim=0)
         pic = torch.unsqueeze(pic, dim=0)
         pic = torch.concat([i_pic, pic], dim=0)
+        return pic
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}()"
+
+
+class AppendDataAdvance:
+    def __init__(self):
+        self.advance_class = []
+        for advance in configure.data_advance:
+            if advance == 'none':
+                self.advance_class.append(transforms.CenterCrop((configure.train_crop_h, configure.train_crop_w)))
+            elif advance == 'color_diff_121_abs_3ch':
+                self.advance_class.append(ColorDiff121abs3ch())
+            elif advance == 'color_diff_121_abs_1ch':
+                self.advance_class.append(ColorDiff121abs1ch())
+            else:
+                raise RuntimeError
+
+    def __call__(self, pic):
+        advance_pic = []
+        for advance in self.advance_class:
+            advance_pic.append(advance(pic))
+        pic = torch.concat(advance_pic, dim=0)
         return pic
 
     def __repr__(self) -> str:
