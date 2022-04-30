@@ -5,7 +5,9 @@ import random
 import shutil
 import time
 import warnings
+
 from enum import Enum
+from pathlib import Path
 
 import configure
 import log_record
@@ -90,6 +92,13 @@ count_early_stop = 0
 
 
 def main():
+    # 保存 configure
+    if not configure.evaluate_only:
+        if os.path.exists(Path(configure.ckpt_dir).joinpath('configure.py')):
+            raise RuntimeError
+        else:
+            shutil.copyfile(Path(configure.code_dir).joinpath('configure.py'),
+                            Path(configure.ckpt_dir).joinpath('configure.py'))
     args = parser.parse_args()
 
     if args.seed is not None:
