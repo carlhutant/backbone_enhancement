@@ -44,7 +44,7 @@ class ConcatResNet(nn.Module):
         elif len(configure.resume_ckpt_path) == configure.model_num:
             print('loading multiple backbone...')
             for i in range(configure.model_num):
-                load_model_list.append((self.model_list[i], configure.resume_ckpt_path[0]))
+                load_model_list.append((self.model_list[i], configure.resume_ckpt_path[i]))
         else:
             raise RuntimeError
 
