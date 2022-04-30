@@ -263,7 +263,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 optimizer.load_state_dict(checkpoint['optimizer'])
                 scheduler.load_state_dict(checkpoint['scheduler'])
                 print("=> loaded checkpoint '{}' (epoch {})"
-                      .format(args.resume, checkpoint['epoch']))
+                      .format(configure.resume_ckpt_path[0], checkpoint['epoch']))
             else:
                 print("=> no checkpoint found at '{}'".format(configure.resume_ckpt_path[0]))
 
@@ -482,9 +482,9 @@ def main_worker(gpu, ngpus_per_node, args):
                 (image_tensor, label_tensor) = (batch_instance[0][instance_No], batch_instance[1][instance_No])
                 channel_first_image = np.array(image_tensor, dtype=float)
                 if configure.input_channel >= 3:
-                    channel_r = channel_first_image[3, ..., np.newaxis] * 255
-                    channel_g = channel_first_image[3, ..., np.newaxis] * 255
-                    channel_b = channel_first_image[3, ..., np.newaxis] * 255
+                    channel_r = channel_first_image[0, ..., np.newaxis] * 255
+                    channel_g = channel_first_image[1, ..., np.newaxis] * 255
+                    channel_b = channel_first_image[2, ..., np.newaxis] * 255
                 elif configure.input_channel == 1:
                     channel_r = channel_first_image[0, ..., np.newaxis] * 255
                     channel_g = channel_first_image[0, ..., np.newaxis] * 255
