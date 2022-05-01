@@ -232,7 +232,8 @@ def main_worker(gpu, ngpus_per_node, args):
     #     a = 0
 
     # define loss function (criterion), optimizer, and learning rate scheduler
-    criterion = nn.CrossEntropyLoss().cuda(args.gpu)
+    criterion = {'CrossEntropy': nn.CrossEntropyLoss().cuda(args.gpu),
+                 'MSE': nn.MSELoss().cuda(args.gpu)}
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -607,12 +608,12 @@ def train(train_loader, model, criterion, optimizer, epoch, log_rec, args):
         # compute output
         if configure.ina_type is None:
             predict = model(images)
-            loss = criterion(predict, target)
+            loss = criterion['CrossEntropy'](predict, target)
         else:
             predict, feature_pair_list = model(images)
-            loss = criterion(predict, target) * configure.ina_loss_weight[0]
+            loss = criterion['CrossEntropy'](predict, target) * configure.ina_loss_weight[0]
             for loss_pair_No in range(configure.loss_pair_num):
-                loss += criterion(feature_pair_list[loss_pair_No][0], feature_pair_list[loss_pair_No][1])\
+                loss += criterion[configure.loss_function](feature_pair_list[loss_pair_No][0], feature_pair_list[loss_pair_No][1])\
                         * configure.ina_loss_weight[loss_pair_No + 1]
 
         # measure accuracy and record loss
@@ -673,12 +674,12 @@ def validate(val_loader, model, criterion, log_rec, args):
             # compute output
             if configure.ina_type is None:
                 predict = model(images)
-                loss = criterion(predict, target)
+                loss = criterion['CrossEntropy'](predict, target)
             else:
                 predict, feature_pair_list = model(images)
-                loss = criterion(predict, target) * configure.ina_loss_weight[0]
+                loss = criterion['CrossEntropy'](predict, target) * configure.ina_loss_weight[0]
                 for loss_pair_No in range(configure.loss_pair_num):
-                    loss += criterion(feature_pair_list[loss_pair_No][0], feature_pair_list[loss_pair_No][1]) \
+                    loss += criterion[configure.loss_function](feature_pair_list[loss_pair_No][0], feature_pair_list[loss_pair_No][1]) \
                             * configure.ina_loss_weight[loss_pair_No + 1]
 
             # measure accuracy and record loss
