@@ -94,11 +94,14 @@ count_early_stop = 0
 def main():
     # 保存 configure
     if not configure.evaluate_only:
+        log_rec = log_record.LogRecoder(configure.resume)
         if os.path.exists(Path(configure.ckpt_dir).joinpath('configure.py')):
             raise RuntimeError
         else:
             shutil.copyfile(Path(configure.code_dir).joinpath('configure.py'),
                             Path(configure.ckpt_dir).joinpath('configure.py'))
+    else:
+        log_rec = None
     args = parser.parse_args()
 
     if args.seed is not None:
@@ -148,13 +151,13 @@ def main():
                         head += 3
                 configure.rgb_swap_order = order
                 print('order:{}'.format(configure.rgb_swap_order))
-                main_worker(args.gpu, ngpus_per_node, args)
+                main_worker(args.gpu, ngpus_per_node, log_rec, args)
         else:
             # Simply call main_worker function
-            main_worker(args.gpu, ngpus_per_node, args)
+            main_worker(args.gpu, ngpus_per_node, log_rec, args)
 
 
-def main_worker(gpu, ngpus_per_node, args):
+def main_worker(gpu, ngpus_per_node, log_rec, args):
     global best_acc1
     global best_acc1_early_stop
     global count_early_stop
@@ -335,6 +338,18 @@ def main_worker(gpu, ngpus_per_node, args):
             else:
                 raise RuntimeError
         elif configure.dataset == 'inat2021':
+            if data_advance == 'none':
+                mean += [0.485, 0.456, 0.406]
+                std += [0.229, 0.224, 0.225]
+            elif data_advance == 'color_diff_121_abs_3ch':
+                mean += [0.043, 0.043, 0.043]
+                std += [0.047, 0.047, 0.047]
+            elif data_advance == 'color_diff_121_abs_1ch':
+                mean += [0.043]
+                std += [0.047]
+            else:
+                raise RuntimeError
+        elif configure.dataset == 'office-31':
             if data_advance == 'none':
                 mean += [0.485, 0.456, 0.406]
                 std += [0.229, 0.224, 0.225]
@@ -529,8 +544,6 @@ def main_worker(gpu, ngpus_per_node, args):
                 cv2.waitKey()
                 instance_count += 1
             batch_count += 1
-
-    log_rec = log_record.LogRecoder(configure.resume)
 
     if args.evaluate:
         validate(val_loader, model, criterion, log_rec, args)
