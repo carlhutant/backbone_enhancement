@@ -15,6 +15,7 @@ import data_argumentation
 import ResNet
 import concat_backbone
 import finetune
+from lr_scheduler import VerboseToLogReduceLROnPlateau
 
 import numpy as np
 import torch
@@ -23,7 +24,7 @@ import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
 import torch.optim
-from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
+# from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
 import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
@@ -244,11 +245,13 @@ def main_worker(gpu, ngpus_per_node, log_rec, args):
 
     # LR scheduler
     # ReduceLROnPlateau
-    scheduler = ReduceLROnPlateau(optimizer, mode='max',
-                                  factor=configure.factor,
-                                  patience=configure.patience,
-                                  threshold=configure.threshold,
-                                  verbose=True)
+    scheduler = VerboseToLogReduceLROnPlateau(optimizer,
+                                              mode='max',
+                                              factor=configure.factor,
+                                              patience=configure.patience,
+                                              threshold=configure.threshold,
+                                              verbose=True,
+                                              log_rec=log_rec)
     # # Sets the learning rate to the initial LR decayed by 10 every 30 epochs
     # scheduler = StepLR(optimizer, step_size=30, gamma=0.1)
 
