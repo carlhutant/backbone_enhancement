@@ -9,21 +9,21 @@ from torch import Tensor
 
 # 現在只實作重新訓練 FC
 class FineTuneResNet(nn.Module):
-    def __init__(self, model_id: int) -> None:
+    def __init__(self, model_id: int, pretrained: bool) -> None:
         super().__init__()
-        self.fc_removed = False
 
+        self.pretrained = pretrained
         # 建立 models
         if configure.model[model_id] == 'resnet50':
-            self.model = ResNet.resnet50(model_id)
+            self.model = ResNet.resnet50(model_id=model_id, pretrained=pretrained)
         elif configure.model[model_id] == 'resnet101':
-            self.model = ResNet.resnet101(model_id)
+            self.model = ResNet.resnet101(model_id=model_id, pretrained=pretrained)
         else:
             raise RuntimeError
-        configure.model_mode[model_id] += '_removeFC'
-
-        # 建立剩下的 FC
-        self.fc = torch.nn.Linear(configure.output_channel, configure.class_num)
+        if 'tolayer4' in configure.model_mode[model_id]:
+            self.model.requires_grad_(False)
+            self.model.layer4.requires_grad_(True)
+            self.model.fc.requires_grad_(True)
 
     def load(self, path, args):
         if os.path.isfile(path):
@@ -44,11 +44,11 @@ class FineTuneResNet(nn.Module):
             print("=> no checkpoint found at '{}'".format(path))
             raise RuntimeError
 
-        self.remove_fc()
+        # self.remove_fc()
 
     def forward(self, x: Tensor):
         x = self.model(x)
-        x = self.fc(x)
+        # x = self.fc(x)
         return x
 
     def ck_fc(self):
@@ -59,3 +59,6 @@ class FineTuneResNet(nn.Module):
             names.append(name)
             parameters.append(param)
         stop = 1
+
+    def state_dict(self):
+        return self.model.state_dict()

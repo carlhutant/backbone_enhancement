@@ -5,7 +5,8 @@ import torch.nn as nn
 import configure
 from torch import Tensor
 
-# from .._internally_replaced_utils import load_state_dict_from_url
+
+from torchvision._internally_replaced_utils import load_state_dict_from_url
 # from ..utils import _log_api_usage_once
 
 
@@ -168,7 +169,7 @@ class ResNet(nn.Module):
         block: Type[Union[BasicBlock, Bottleneck]],
         layers: List[int],
         model_id: int,
-        num_classes: int = configure.class_num,
+        num_classes: int = 1000,
         zero_init_residual: bool = False,
         groups: int = 1,
         width_per_group: int = 64,
@@ -210,10 +211,7 @@ class ResNet(nn.Module):
             self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
             self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        if 'half' in configure.model_mode[model_id]:
-            self.fc = nn.Linear(256 * block.expansion, num_classes)
-        else:
-            self.fc = nn.Linear(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -303,9 +301,14 @@ def _resnet(
     **kwargs: Any,
 ) -> ResNet:
     model = ResNet(block, layers, model_id,  **kwargs)
-    # if pretrained:
-    #     state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
-    #     model.load_state_dict(state_dict)
+    if pretrained and 'half' not in configure.model_mode[model_id]:
+        state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
+        model.load_state_dict(state_dict)
+        model.requires_grad_(False)
+    if 'half' in configure.model_mode[model_id]:
+        model.fc = nn.Linear(256 * block.expansion, configure.class_num)
+    else:
+        model.fc = nn.Linear(512 * block.expansion, configure.class_num)
     return model
 
 

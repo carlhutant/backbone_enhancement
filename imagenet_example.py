@@ -184,7 +184,11 @@ def main_worker(gpu, ngpus_per_node, log_rec, args):
     else:
         if 'resnet' in args.arch[0]:
             if 'fix_backbone' in configure.model_mode[0]:
-                model = finetune.FineTuneResNet(model_id=0)
+                if 'pretrain' in configure.model_mode[0]:
+                    pretrained = True
+                else:
+                    pretrained = False
+                model = finetune.FineTuneResNet(model_id=0, pretrained=pretrained)
             elif args.arch[0] == 'resnet50':
                 model = ResNet.resnet50(model_id=0)
             elif args.arch[0] == 'resnet101':
@@ -260,7 +264,7 @@ def main_worker(gpu, ngpus_per_node, log_rec, args):
         if configure.model_num > 1:  # 使用 concat backbone
             model.load(args)
         elif configure.model_num == 1 and 'fix' in configure.model_mode[0]:  # 使用 finetune
-            model.load(args)
+            model.load(configure.resume_ckpt_path[0], args)
         else:  # 使用 ResNet
             if os.path.isfile(configure.resume_ckpt_path[0]):
                 print("=> loading checkpoint '{}'".format(configure.resume_ckpt_path[0]))
