@@ -304,7 +304,6 @@ def _resnet(
     if pretrained and 'half' not in configure.model_mode[model_id]:
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
         model.load_state_dict(state_dict)
-        model.requires_grad_(False)
     if 'half' in configure.model_mode[model_id]:
         model.fc = nn.Linear(256 * block.expansion, configure.class_num)
     else:

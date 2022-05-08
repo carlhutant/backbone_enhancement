@@ -30,6 +30,8 @@ class FineTuneResNet(nn.Module):
             self.layer2_trainable()
         elif 'train_layer1' in configure.model_mode[model_id]:
             self.layer1_trainable()
+        elif 'train_fc' in configure.model_mode[model_id]:
+            self.fc_trainable()
 
     def load(self, path, args):
         if os.path.isfile(path):
