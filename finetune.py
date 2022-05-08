@@ -20,10 +20,16 @@ class FineTuneResNet(nn.Module):
             self.model = ResNet.resnet101(model_id=model_id, pretrained=pretrained)
         else:
             raise RuntimeError
-        if 'tolayer4' in configure.model_mode[model_id]:
+        if 'fix_backbone' in configure.model_mode[model_id]:
             self.model.requires_grad_(False)
-            self.model.layer4.requires_grad_(True)
-            self.model.fc.requires_grad_(True)
+        if 'train_layer4' in configure.model_mode[model_id]:
+            self.layer4_trainable()
+        elif 'train_layer3' in configure.model_mode[model_id]:
+            self.layer3_trainable()
+        elif 'train_layer2' in configure.model_mode[model_id]:
+            self.layer2_trainable()
+        elif 'train_layer1' in configure.model_mode[model_id]:
+            self.layer1_trainable()
 
     def load(self, path, args):
         if os.path.isfile(path):
@@ -62,3 +68,22 @@ class FineTuneResNet(nn.Module):
 
     def state_dict(self):
         return self.model.state_dict()
+
+    def layer1_trainable(self):
+        self.model.layer1.requires_grad_(True)
+        self.layer2_trainable()
+
+    def layer2_trainable(self):
+        self.model.layer2.requires_grad_(True)
+        self.layer3_trainable()
+
+    def layer3_trainable(self):
+        self.model.layer3.requires_grad_(True)
+        self.layer4_trainable()
+
+    def layer4_trainable(self):
+        self.model.layer4.requires_grad_(True)
+        self.fc_trainable()
+
+    def fc_trainable(self):
+        self.model.fc.requires_grad_(True)
