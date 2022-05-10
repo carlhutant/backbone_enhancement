@@ -134,22 +134,13 @@ def main():
         mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, args))
     else:
         if configure.swap_evaluate:
-            origin_list = [[0, 1, 2],
-                           [0, 2, 1],
-                           [1, 0, 2],
-                           [1, 2, 0],
-                           [2, 0, 1],
-                           [2, 1, 0]]
-            for origin in origin_list:
-                head = 0
-                order = []
-                for model_No in range(configure.model_num):
-                    if '1ch' in configure.data_advance[model_No]:
-                        order.append(head)
-                        head += 1
-                    else:
-                        order += [x + head for x in origin]
-                        head += 3
+            order_list = [[0, 1, 2],
+                          [0, 2, 1],
+                          [1, 0, 2],
+                          [1, 2, 0],
+                          [2, 0, 1],
+                          [2, 1, 0]]
+            for order in order_list:
                 configure.rgb_swap_order = order
                 print('order:{}'.format(configure.rgb_swap_order))
                 main_worker(args.gpu, ngpus_per_node, log_rec, args)
