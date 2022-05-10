@@ -387,6 +387,8 @@ def main_worker(gpu, ngpus_per_node, log_rec, args):
     val_transform_list = [transforms.ToTensor()]
 
     # 設定 train_transform_list
+    if configure.rgb_swap_order is not None:
+        train_transform_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order))
     if configure.data_advance_num > 1:
         if 'color_diff_121_abs_3ch' in configure.data_advance or 'color_diff_121_abs_1ch' in configure.data_advance:
             train_transform_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h + 2,
@@ -438,12 +440,12 @@ def main_worker(gpu, ngpus_per_node, log_rec, args):
 
     if configure.train_random_horizontal_flip:
         train_transform_list.append(transforms.RandomHorizontalFlip())
-    if configure.rgb_swap_order is not None:
-        train_transform_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order))
     if not configure.data_sampler:
         train_transform_list.append(normalize)
 
     # 設定 val_transform_list
+    if configure.rgb_swap_order is not None:
+        val_transform_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order))
     if configure.data_advance_num > 1:
         if 'color_diff_121_abs_3ch' in configure.data_advance or 'color_diff_121_abs_1ch' in configure.data_advance:
             val_transform_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h + 2,
@@ -492,8 +494,6 @@ def main_worker(gpu, ngpus_per_node, log_rec, args):
     else:
         raise RuntimeError
 
-    if configure.rgb_swap_order is not None:
-        val_transform_list.append(data_argumentation.ChannelSwap(configure.rgb_swap_order))
     if not configure.data_sampler:
         val_transform_list.append(normalize)
 
