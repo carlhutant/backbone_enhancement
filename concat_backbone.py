@@ -47,7 +47,7 @@ class ConcatResNet(nn.Module):
                 load_model_list.append((self.model_list[i], configure.resume_ckpt_path[i]))
         else:
             raise RuntimeError
-
+        best_acc1 = 0
         for i in range(len(load_model_list)):
             model, path = load_model_list[i]
             if path is None:
@@ -60,19 +60,21 @@ class ConcatResNet(nn.Module):
                     # Map model to be loaded to specified single gpu.
                     loc = 'cuda:{}'.format(args.gpu)
                     checkpoint = torch.load(path, map_location=loc)
-                best_acc1 = checkpoint['best_acc1']
-                if args.gpu is not None:
-                    # best_acc1 may be from a checkpoint from a different GPU
-                    best_acc1 = best_acc1.to(args.gpu)
+
                 model.load_state_dict(checkpoint['state_dict'])
                 if len(configure.resume_ckpt_path) == 1:
                     optimizer.load_state_dict(checkpoint['optimizer'])
                     scheduler.load_state_dict(checkpoint['scheduler'])
+                    best_acc1 = checkpoint['best_acc1']
                 print("=> loaded checkpoint '{}' (epoch {})"
                       .format(path, checkpoint['epoch']))
             else:
                 print("=> no checkpoint found at '{}'".format(path))
                 raise RuntimeError
+            if args.gpu is not None:
+                # best_acc1 may be from a checkpoint from a different GPU
+                best_acc1 = best_acc1.to(args.gpu)
+        return best_acc1
 
         # get all layer names and weights
         # names1 = []
