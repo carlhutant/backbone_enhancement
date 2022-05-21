@@ -36,7 +36,7 @@ class ConcatResNet(nn.Module):
             fc_channel = configure.output_channel_list[0]
         self.fc = torch.nn.Linear(fc_channel, configure.class_num)
 
-    def load(self, args):
+    def load(self, optimizer, scheduler, args):
         load_model_list = []
         if len(configure.resume_ckpt_path) == 1:
             print('loading entire model...')
@@ -65,6 +65,9 @@ class ConcatResNet(nn.Module):
                     # best_acc1 may be from a checkpoint from a different GPU
                     best_acc1 = best_acc1.to(args.gpu)
                 model.load_state_dict(checkpoint['state_dict'])
+                if len(configure.resume_ckpt_path) == 1:
+                    optimizer.load_state_dict(checkpoint['optimizer'])
+                    scheduler.load_state_dict(checkpoint['scheduler'])
                 print("=> loaded checkpoint '{}' (epoch {})"
                       .format(path, checkpoint['epoch']))
             else:

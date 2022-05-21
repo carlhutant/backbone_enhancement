@@ -253,7 +253,7 @@ def main_worker(gpu, ngpus_per_node, log_rec, args):
     # resume from a checkpoint
     if configure.resume:
         if configure.model_num > 1:  # 使用 concat backbone
-            model.load(args)
+            model.load(optimizer, scheduler, args)
         elif configure.model_num == 1 and 'fix' in configure.model_mode[0]:  # 使用 finetune
             model.load(configure.resume_ckpt_path[0], args)
         else:  # 使用 ResNet
