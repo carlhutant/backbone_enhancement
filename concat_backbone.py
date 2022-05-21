@@ -67,14 +67,14 @@ class ConcatResNet(nn.Module):
                     scheduler.load_state_dict(checkpoint['scheduler'])
                     args.start_epoch = checkpoint['epoch']
                     best_acc1 = checkpoint['best_acc1']
+                    if args.gpu is not None:
+                        # best_acc1 may be from a checkpoint from a different GPU
+                        best_acc1 = best_acc1.to(args.gpu)
                 print("=> loaded checkpoint '{}' (epoch {})"
                       .format(path, checkpoint['epoch']))
             else:
                 print("=> no checkpoint found at '{}'".format(path))
                 raise RuntimeError
-            if args.gpu is not None:
-                # best_acc1 may be from a checkpoint from a different GPU
-                best_acc1 = best_acc1.to(args.gpu)
         return best_acc1
 
         # get all layer names and weights
