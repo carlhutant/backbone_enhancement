@@ -65,6 +65,7 @@ class ConcatResNet(nn.Module):
                 if len(configure.resume_ckpt_path) == 1:
                     optimizer.load_state_dict(checkpoint['optimizer'])
                     scheduler.load_state_dict(checkpoint['scheduler'])
+                    args.start_epoch = checkpoint['epoch']
                     best_acc1 = checkpoint['best_acc1']
                 print("=> loaded checkpoint '{}' (epoch {})"
                       .format(path, checkpoint['epoch']))
