@@ -200,18 +200,25 @@ class ResNet(nn.Module):
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
+        channel_ratio = 1
         if 'half' in configure.model_mode[model_id]:
-            self.layer1 = self._make_layer(block, 32, layers[0])
-            self.layer2 = self._make_layer(block, 64, layers[1], stride=2, dilate=replace_stride_with_dilation[0])
-            self.layer3 = self._make_layer(block, 128, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
-            self.layer4 = self._make_layer(block, 256, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
-        else:
-            self.layer1 = self._make_layer(block, 64, layers[0])
-            self.layer2 = self._make_layer(block, 128, layers[1], stride=2, dilate=replace_stride_with_dilation[0])
-            self.layer3 = self._make_layer(block, 256, layers[2], stride=2, dilate=replace_stride_with_dilation[1])
-            self.layer4 = self._make_layer(block, 512, layers[3], stride=2, dilate=replace_stride_with_dilation[2])
+            channel_ratio = 0.5
+        elif 'double' in configure.model_mode[model_id]:
+            channel_ratio = 2
+
+        self.layer1 = self._make_layer(block, int(64*channel_ratio), layers[0])
+        self.layer2 = self._make_layer(block, int(128*channel_ratio), layers[1], stride=2,
+                                       dilate=replace_stride_with_dilation[0])
+        self.layer3 = self._make_layer(block, int(256*channel_ratio), layers[2], stride=2,
+                                       dilate=replace_stride_with_dilation[1])
+        self.layer4 = self._make_layer(block, int(512*channel_ratio), layers[3], stride=2,
+                                       dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        if 'bottleFC' in configure.model_mode[self.model_id]:
+            self.bottlefc = nn.Linear(int(512*channel_ratio)*block.expansion, int(512*channel_ratio*0.5)*block.expansion)
+            self.fc = nn.Linear(int(512*channel_ratio*0.5)*block.expansion, num_classes)
+        else:
+            self.fc = nn.Linear(int(512 * channel_ratio) * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -282,6 +289,8 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
+        if 'bottleFC' in configure.model_mode[self.model_id]:
+            x = self.bottlefc(x)
         if 'removeFC' not in configure.model_mode[self.model_id]:
             x = self.fc(x)
 
@@ -300,14 +309,12 @@ def _resnet(
     model_id: int,
     **kwargs: Any,
 ) -> ResNet:
-    model = ResNet(block, layers, model_id,  **kwargs)
-    if pretrained and 'half' not in configure.model_mode[model_id]:
+    model = ResNet(block, layers, model_id, num_classes=configure.class_num,  **kwargs)
+    if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
         model.load_state_dict(state_dict)
-    if 'half' in configure.model_mode[model_id]:
-        model.fc = nn.Linear(256 * block.expansion, configure.class_num)
-    else:
-        model.fc = nn.Linear(512 * block.expansion, configure.class_num)
+        model.fc = nn.Linear(512*block.expansion, configure.class_num)
+
     return model
 
 
