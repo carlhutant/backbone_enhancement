@@ -291,7 +291,8 @@ class ResNet(nn.Module):
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         if 'bottleFC' in configure.model_mode[self.model_id]:
-            x = self.bottlefc(x)
+            x = self.bottle_fc(x)
+            x = self.bottle_relu(x)
         if 'removeFC' not in configure.model_mode[self.model_id]:
             x = self.fc(x)
 
