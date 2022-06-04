@@ -226,7 +226,7 @@ def main_worker(gpu, ngpus_per_node, log_rec, args):
         else:
             model = torch.nn.DataParallel(model).cuda()
 
-    print(model)
+    # print(model)
     # for name, param in model.named_parameters():
     #     a = 0
 
