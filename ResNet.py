@@ -215,7 +215,8 @@ class ResNet(nn.Module):
                                        dilate=replace_stride_with_dilation[2])
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         if 'bottleFC' in configure.model_mode[self.model_id]:
-            self.bottlefc = nn.Linear(int(512*channel_ratio)*block.expansion, int(512*channel_ratio*0.5)*block.expansion)
+            self.bottle_fc = nn.Linear(int(512*channel_ratio)*block.expansion, int(512*channel_ratio*0.5)*block.expansion)
+            self.bottle_relu = nn.ReLU()
             self.fc = nn.Linear(int(512*channel_ratio*0.5)*block.expansion, num_classes)
         else:
             self.fc = nn.Linear(int(512 * channel_ratio) * block.expansion, num_classes)
