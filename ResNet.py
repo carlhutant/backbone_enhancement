@@ -311,8 +311,14 @@ def _resnet(
     model_id: int,
     **kwargs: Any,
 ) -> ResNet:
+
     if 'expansion2' in configure.model_mode[model_id]:
         block.expansion = 2
+    elif 'expansion' not in configure.model_mode[model_id]:
+        block.expansion = 4
+    else:
+        raise RuntimeError
+
     model = ResNet(block, layers, model_id, num_classes=configure.class_num,  **kwargs)
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
