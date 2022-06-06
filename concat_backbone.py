@@ -26,7 +26,7 @@ class ConcatResNet(nn.Module):
             if 'fix_backbone' in configure.model_mode[i]:
                 self.model_list[i].requires_grad_(False)
 
-        if configure.ina_type is None:
+        if configure.ina_type is None or configure.dropout_rate is not None:
             self.dropout = torch.nn.Dropout(p=configure.dropout_rate)
 
         # 建立剩下的 FC
@@ -103,6 +103,8 @@ class ConcatResNet(nn.Module):
             x = self.fc(x)
             return x
 
+        if configure.dropout_rate is not None:
+            feature[0] = self.dropout(feature[0])
         predict = self.fc(feature[0])
 
         feature_pair_list = []
