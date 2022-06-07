@@ -62,7 +62,7 @@ class ConcatResNet(nn.Module):
                     checkpoint = torch.load(path, map_location=loc)
 
                 model.load_state_dict(checkpoint['state_dict'])
-                if len(configure.resume_ckpt_path) == 1:
+                if len(configure.resume_ckpt_path) == 1 and not configure.reset_training_history:
                     optimizer.load_state_dict(checkpoint['optimizer'])
                     scheduler.load_state_dict(checkpoint['scheduler'])
                     args.start_epoch = checkpoint['epoch']
