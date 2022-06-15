@@ -69,6 +69,7 @@ class BasicBlock(nn.Module):
         base_width: int = 64,
         dilation: int = 1,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
+        last_conv_channel: int = -1
     ) -> None:
         super().__init__()
         if norm_layer is None:
@@ -124,6 +125,7 @@ class Bottleneck(nn.Module):
         base_width: int = 64,
         dilation: int = 1,
         norm_layer: Optional[Callable[..., nn.Module]] = None,
+        last_conv_channel: int = -1
     ) -> None:
         super().__init__()
         if norm_layer is None:
@@ -134,8 +136,11 @@ class Bottleneck(nn.Module):
         self.bn1 = norm_layer(width)
         self.conv2 = conv3x3(width, width, stride, groups, dilation)
         self.bn2 = norm_layer(width)
-        self.conv3 = conv1x1(width, planes * self.expansion)
-        self.bn3 = norm_layer(planes * self.expansion)
+        self.last_conv_channel = planes * self.expansion
+        if last_conv_channel != -1:
+            self.last_conv_channel = last_conv_channel
+        self.conv3 = conv1x1(width, self.last_conv_channel)
+        self.bn3 = norm_layer(self.last_conv_channel)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -212,7 +217,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, int(256*channel_ratio), layers[2], stride=2,
                                        dilate=replace_stride_with_dilation[1])
         self.layer4 = self._make_layer(block, int(512*channel_ratio), layers[3], stride=2,
-                                       dilate=replace_stride_with_dilation[2])
+                                       dilate=replace_stride_with_dilation[2], last_layer=True)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         if 'bottleFC' in configure.model_mode[self.model_id]:
             self.bottle_fc = nn.Linear(int(512*channel_ratio)*block.expansion, int(512*channel_ratio*0.5)*block.expansion)
@@ -245,6 +250,7 @@ class ResNet(nn.Module):
         blocks: int,
         stride: int = 1,
         dilate: bool = False,
+        last_layer: bool = False
     ) -> nn.Sequential:
         norm_layer = self._norm_layer
         downsample = None
@@ -262,7 +268,30 @@ class ResNet(nn.Module):
             self.inplanes, planes, stride, downsample, self.groups, self.base_width, previous_dilation, norm_layer
         )]
         self.inplanes = planes * block.expansion
-        for _ in range(1, blocks):
+        for _ in range(1, blocks-1):
+            layers.append(
+                block(
+                    self.inplanes,
+                    planes,
+                    groups=self.groups,
+                    base_width=self.base_width,
+                    dilation=self.dilation,
+                    norm_layer=norm_layer,
+                )
+            )
+        if last_layer and 'last_conv_channel_1024' in configure.model_mode[self.model_id]:
+            layers.append(
+                block(
+                    self.inplanes,
+                    planes,
+                    groups=self.groups,
+                    base_width=self.base_width,
+                    dilation=self.dilation,
+                    norm_layer=norm_layer,
+                    last_conv_channel=1024
+                )
+            )
+        else:
             layers.append(
                 block(
                     self.inplanes,
