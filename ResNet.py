@@ -219,7 +219,9 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, int(512*channel_ratio), layers[3], stride=2,
                                        dilate=replace_stride_with_dilation[2], last_layer=True)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        if 'bottleFC' in configure.model_mode[self.model_id]:
+        if 'last_conv_channel_1024' in configure.model_mode[self.model_id]:
+            self.fc = nn.Linear(1024, num_classes)
+        elif 'bottleFC' in configure.model_mode[self.model_id]:
             self.bottle_fc = nn.Linear(int(512*channel_ratio)*block.expansion, int(512*channel_ratio*0.5)*block.expansion)
             self.bottle_relu = nn.ReLU()
             self.fc = nn.Linear(int(512*channel_ratio*0.5)*block.expansion, num_classes)
