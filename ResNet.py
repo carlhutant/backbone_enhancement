@@ -283,7 +283,7 @@ class ResNet(nn.Module):
             )
         if last_layer and 'last_conv_channel_1024' in configure.model_mode[self.model_id]:
             downsample = nn.Sequential(
-                conv1x1(planes * block.expansion, 1024, stride),
+                conv1x1(planes * block.expansion, 1024),
                 norm_layer(1024),
             )
             layers.append(
