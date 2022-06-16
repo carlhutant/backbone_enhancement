@@ -221,10 +221,6 @@ class ResNet(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         if 'last_conv_channel_1024' in configure.model_mode[self.model_id]:
             self.fc = nn.Linear(1024, num_classes)
-        elif 'bottleFC' in configure.model_mode[self.model_id]:
-            self.bottle_fc = nn.Linear(int(512*channel_ratio)*block.expansion, int(512*channel_ratio*0.5)*block.expansion)
-            self.bottle_relu = nn.ReLU()
-            self.fc = nn.Linear(int(512*channel_ratio*0.5)*block.expansion, num_classes)
         else:
             self.fc = nn.Linear(int(512 * channel_ratio) * block.expansion, num_classes)
 
@@ -326,9 +322,6 @@ class ResNet(nn.Module):
 
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        if 'bottleFC' in configure.model_mode[self.model_id]:
-            x = self.bottle_fc(x)
-            x = self.bottle_relu(x)
         if 'removeFC' not in configure.model_mode[self.model_id]:
             x = self.fc(x)
 
