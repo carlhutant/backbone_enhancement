@@ -6,7 +6,7 @@ import configure
 import numpy as np
 from pathlib import Path
 
-dataset = 'office-31'
+dataset = 'AWA2'
 random.seed(486)
 source_dir = Path('{}/{}/img/no_split/'.format(configure.dataset_dir, dataset))
 target_dir = Path('{}/{}/img/'.format(configure.dataset_dir, dataset))
