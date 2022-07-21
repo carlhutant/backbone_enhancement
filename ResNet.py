@@ -348,11 +348,13 @@ def _resnet(
     else:
         raise RuntimeError
 
-    model = ResNet(block, layers, model_id, num_classes=configure.class_num,  **kwargs)
     if pretrained:
+        model = ResNet(block, layers, model_id, num_classes=1000, **kwargs)
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
         model.load_state_dict(state_dict)
         model.fc = nn.Linear(512*block.expansion, configure.class_num)
+    else:
+        model = ResNet(block, layers, model_id, num_classes=configure.class_num,  **kwargs)
 
     return model
 
