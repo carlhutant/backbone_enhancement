@@ -41,63 +41,13 @@ model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
                      and callable(models.__dict__[name]))
 
-# parser = argparse.ArgumentParser(description='PyTorch Backbone Training')
-# parser.add_argument('--data', metavar='DIR', default=configure.data_dir,
-#                     help='path to dataset (default: imagenet)')
-# parser.add_argument('-a', '--arch', metavar='ARCH', default=configure.model,
-#                     choices=model_names,
-#                     help='model architecture: ' +
-#                          ' | '.join(model_names) +
-#                          ' (default: resnet18)')
-# parser.add_argument('-j', '--workers', default=configure.data_loader_worker, type=int, metavar='N',
-#                     help='number of data loading workers (default: 4)')
-# parser.add_argument('--epochs', default=configure.epochs, type=int, metavar='N',
-#                     help='number of total epochs to run')
-# parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
-#                     help='manual epoch number (useful on restarts)')
-# parser.add_argument('-b', '--batch-size', default=configure.train_batch_size, type=int,
-#                     metavar='N',
-#                     help='mini-batch size (default: 256), this is the total '
-#                          'batch size of all GPUs on the current node when '
-#                          'using Data Parallel or Distributed Data Parallel')
-# parser.add_argument('--lr', '--learning-rate', default=configure.lr, type=float,
-#                     metavar='LR', help='initial learning rate', dest='lr')
-# parser.add_argument('--momentum', default=configure.momentum, type=float, metavar='M',
-#                     help='momentum')
-# parser.add_argument('--wd', '--weight-decay', default=configure.weight_decay, type=float,
-#                     metavar='W', help='weight decay (default: 1e-4)',
-#                     dest='weight_decay')
-# parser.add_argument('-p', '--print-freq', default=10, type=int,
-#                     metavar='N', help='print frequency (default: 10)')
-# parser.add_argument('-e', '--evaluate', default=configure.evaluate_only, dest='evaluate', action='store_true',
-#                     help='evaluate model on validation set')
-# parser.add_argument('--pretrained', dest='pretrained', action='store_true',
-#                     help='use pre-trained model')
-# parser.add_argument('--world-size', default=-1, type=int,
-#                     help='number of nodes for distributed training')
-# parser.add_argument('--rank', default=-1, type=int,
-#                     help='node rank for distributed training')
-# parser.add_argument('--dist-url', default='tcp://224.66.41.62:23456', type=str,
-#                     help='url used to set up distributed training')
-# parser.add_argument('--dist-backend', default='nccl', type=str,
-#                     help='distributed backend')
-# parser.add_argument('--seed', default=configure.random_seed, type=int,
-#                     help='seed for initializing training. ')
-# parser.add_argument('--gpu', default=configure.specified_GPU_ID, type=int,
-#                     help='GPU id to use.')
-# parser.add_argument('--multiprocessing-distributed', action='store_true',
-#                     help='Use multi-processing distributed training to launch '
-#                          'N processes per node, which has N GPUs. This is the '
-#                          'fastest way to use PyTorch for either single node or '
-#                          'multi node data parallel training')
-
 best_acc1 = 0
 best_acc1_early_stop = 0
 count_early_stop = 0
 
 
 def main():
-    # 保存 configure
+    # 保存 configure.py  紀錄訓練時的參數設定，同時避免訓練好的模型在搬移前被新的訓練覆蓋
     if not configure.evaluate_only:
         log_rec = log_record.LogRecoder(configure.resume)
         if os.path.exists(Path(configure.ckpt_dir).joinpath('configure.py')):
@@ -125,14 +75,12 @@ def main():
                       'disable data parallelism.')
 
     ngpus_per_node = torch.cuda.device_count()
+
+    # 測試模型在各 domain 的效果
     if configure.evaluate_all_domain:
         if configure.dataset == ['AWA2', 'imagenet', 'inat2021']:
-            order_list = [[0, 1, 2],
-                          [0, 2, 1],
-                          [1, 0, 2],
-                          [1, 2, 0],
-                          [2, 0, 1],
-                          [2, 1, 0]]
+            order_list = [[0, 1, 2], [0, 2, 1], [1, 0, 2],
+                          [1, 2, 0], [2, 0, 1], [2, 1, 0]]
             for order in order_list:
                 configure.rgb_swap_order = order
                 print('order:{}'.format(configure.rgb_swap_order))
@@ -365,14 +313,6 @@ def main_worker(ngpus_per_node, log_rec):
                                                                      ratio=(configure.train_crop_ratio,
                                                                             configure.train_crop_ratio)))
             train_transform_list.append(data_argumentation.AppendDataAdvance())
-        # elif configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_1ch':
-        #     train_compose_list.append(transforms.RandomResizedCrop(size=(configure.train_crop_h + 2,
-        #                                                                  configure.train_crop_w + 2),
-        #                                                            scale=(configure.train_resize_area_ratio_min,
-        #                                                                   configure.train_resize_area_ratio_max),
-        #                                                            ratio=(configure.train_crop_ratio,
-        #                                                                   configure.train_crop_ratio)))
-        #     train_compose_list.append(data_argumentation.AppendColorDiff121abs1ch())
         else:
             raise RuntimeError
     elif configure.data_advance_num == 1:
@@ -422,14 +362,6 @@ def main_worker(ngpus_per_node, log_rec):
                                                                    ratio=(configure.val_crop_ratio,
                                                                           configure.val_crop_ratio)))
             val_transform_list.append(data_argumentation.AppendDataAdvance())
-        # elif configure.data_advance1 == 'none' and configure.data_advance2 == 'color_diff_121_abs_1ch':
-        #     val_transform_list.append(transforms.RandomResizedCrop(size=(configure.val_crop_h + 2,
-        #                                                                configure.val_crop_w + 2),
-        #                                                          scale=(configure.val_resize_area_ratio_min,
-        #                                                                 configure.val_resize_area_ratio_max),
-        #                                                          ratio=(configure.val_crop_ratio,
-        #                                                                 configure.val_crop_ratio)))
-        #     val_transform_list.append(data_argumentation.AppendColorDiff121abs1ch())
         else:
             raise RuntimeError
     elif configure.data_advance_num == 1:
