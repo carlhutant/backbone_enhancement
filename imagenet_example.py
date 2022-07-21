@@ -125,17 +125,32 @@ def main():
                       'disable data parallelism.')
 
     ngpus_per_node = torch.cuda.device_count()
-    if configure.swap_evaluate:
-        order_list = [[0, 1, 2],
-                      [0, 2, 1],
-                      [1, 0, 2],
-                      [1, 2, 0],
-                      [2, 0, 1],
-                      [2, 1, 0]]
-        for order in order_list:
-            configure.rgb_swap_order = order
-            print('order:{}'.format(configure.rgb_swap_order))
-            main_worker(ngpus_per_node, log_rec)
+    if configure.evaluate_all_domain:
+        if configure.dataset == ['AWA2', 'imagenet', 'inat2021']:
+            order_list = [[0, 1, 2],
+                          [0, 2, 1],
+                          [1, 0, 2],
+                          [1, 2, 0],
+                          [2, 0, 1],
+                          [2, 1, 0]]
+            for order in order_list:
+                configure.rgb_swap_order = order
+                print('order:{}'.format(configure.rgb_swap_order))
+                main_worker(ngpus_per_node, log_rec)
+        elif configure.dataset == 'office-31':
+            domain_list = ['amazon', 'dslr', 'webcam']
+            for domain in domain_list:
+                configure.domain = domain
+                print('domain:{}'.format(configure.domain))
+                main_worker(ngpus_per_node, log_rec)
+        elif configure.dataset == 'OfficeHome':
+            domain_list = ['Art', 'Clipart', 'Product', 'Real World']
+            for domain in domain_list:
+                configure.domain = domain
+                print('domain:{}'.format(configure.domain))
+                main_worker(ngpus_per_node, log_rec)
+        else:
+            raise RuntimeError
     else:
         # Simply call main_worker function
         main_worker(ngpus_per_node, log_rec)
