@@ -98,7 +98,7 @@ class AppendColorDiff121abs3ch:
                                                  [1, 0, -1]]],
                                                [[[1, 0, -1],
                                                  [2, 0, -2],
-                                                 [1, 0, -1]]],], dtype=torch.float)
+                                                 [1, 0, -1]]]], dtype=torch.float)
         self.vertical_filter = torch.tensor([[[[1, 2, 1],
                                                [0, 0, 0],
                                                [-1, -2, -1]]],
@@ -149,7 +149,7 @@ class AppendColorDiff121abs1ch:
                                                  [1, 0, -1]]],
                                                [[[1, 0, -1],
                                                  [2, 0, -2],
-                                                 [1, 0, -1]]],], dtype=torch.float)
+                                                 [1, 0, -1]]], ], dtype=torch.float)
         self.vertical_filter = torch.tensor([[[[1, 2, 1],
                                                [0, 0, 0],
                                                [-1, -2, -1]]],
