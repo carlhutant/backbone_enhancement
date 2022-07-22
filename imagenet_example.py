@@ -258,44 +258,7 @@ def main_worker(ngpus_per_node, log_rec):
             std += [0.047]
         else:
             raise RuntimeError
-        # if configure.dataset == 'AWA2':
-        #     if data_advance == 'none':
-        #         mean += [0.485, 0.456, 0.406]
-        #         std += [0.229, 0.224, 0.225]
-        #     elif data_advance == 'color_diff_121_abs_3ch':
-        #         mean += [0.043, 0.043, 0.043]
-        #         std += [0.047, 0.047, 0.047]
-        #     elif data_advance == 'color_diff_121_abs_1ch':
-        #         mean += [0.043]
-        #         std += [0.047]
-        #     else:
-        #         raise RuntimeError
-        # elif configure.dataset == 'inat2021':
-        #     if data_advance == 'none':
-        #         mean += [0.485, 0.456, 0.406]
-        #         std += [0.229, 0.224, 0.225]
-        #     elif data_advance == 'color_diff_121_abs_3ch':
-        #         mean += [0.043, 0.043, 0.043]
-        #         std += [0.047, 0.047, 0.047]
-        #     elif data_advance == 'color_diff_121_abs_1ch':
-        #         mean += [0.043]
-        #         std += [0.047]
-        #     else:
-        #         raise RuntimeError
-        # elif configure.dataset == 'office-31':
-        #     if data_advance == 'none':
-        #         mean += [0.485, 0.456, 0.406]
-        #         std += [0.229, 0.224, 0.225]
-        #     elif data_advance == 'color_diff_121_abs_3ch':
-        #         mean += [0.043, 0.043, 0.043]
-        #         std += [0.047, 0.047, 0.047]
-        #     elif data_advance == 'color_diff_121_abs_1ch':
-        #         mean += [0.043]
-        #         std += [0.047]
-        #     else:
-        #         raise RuntimeError
-        # else:
-        #     raise RuntimeError
+
     normalize = transforms.Normalize(mean=mean, std=std)
 
     train_transform_list = [transforms.ToTensor()]
@@ -480,7 +443,7 @@ def main_worker(ngpus_per_node, log_rec):
             'best_acc1': best_acc1,
             'optimizer': optimizer.state_dict(),
             'scheduler': scheduler.state_dict()
-        }, is_best, '{:03d}'.format(epoch))
+        }, is_best)
         if best_acc1 == best_acc1_early_stop:
             count_early_stop += 1
         else:
