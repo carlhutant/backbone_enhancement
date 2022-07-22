@@ -133,6 +133,7 @@ def main_worker(ngpus_per_node, log_rec):
             else:
                 raise RuntimeError
         else:
+            # 目前只支援 resnet50, 101
             raise RuntimeError
             # if args.pretrained:
             #     print("=> using pre-trained model '{}'".format(args.arch))
