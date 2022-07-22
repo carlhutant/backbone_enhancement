@@ -14,6 +14,7 @@ class ColorDiff121abs3ch:
         self.vertical_filter = torch.tensor([[1, 2, 1],
                                              [0, 0, 0],
                                              [-1, -2, -1]], dtype=torch.float)
+        # 為了 torch.nn.functional.conv2d 的設計調整 shape
         self.horizontal_filter = self.horizontal_filter.unsqueeze(0)
         self.horizontal_filter = self.horizontal_filter.unsqueeze(0)
         self.vertical_filter = self.vertical_filter.unsqueeze(0)
@@ -28,6 +29,7 @@ class ColorDiff121abs3ch:
         h_pic = h_pic.squeeze()
         v_pic = v_pic.squeeze()
         pic = torch.add(h_pic, v_pic)
+        # 確保數值不會超出 255，但不是最佳做法，導至數值都很小
         pic = torch.div(pic, 8)
         # pic = np.array(np.abs(h) + np.abs(v), dtype=float) / 8.0
 
@@ -109,6 +111,7 @@ class AppendColorDiff121abs3ch:
 
     def __call__(self, pic):
         pic = pic.unsqueeze(0)
+        # identify, horizontal, vertical
         i_pic = torch.nn.functional.conv2d(input=pic, weight=self.identify_filter, stride=1, padding=0, groups=3)
         h_pic = torch.nn.functional.conv2d(input=pic, weight=self.horizontal_filter, stride=1, padding=0, groups=3)
         v_pic = torch.nn.functional.conv2d(input=pic, weight=self.vertical_filter, stride=1, padding=0, groups=3)
@@ -119,6 +122,7 @@ class AppendColorDiff121abs3ch:
         v_pic = v_pic.squeeze()
         pic = torch.add(h_pic, v_pic)
         pic = torch.div(pic, 8)
+        # 輸出是 6 channel(RGB + RGB 變化量)
         pic = torch.concat([i_pic, pic], dim=0)
         return pic
 
@@ -170,6 +174,7 @@ class AppendColorDiff121abs1ch:
         pic = torch.div(pic, 8)
         pic = torch.mean(pic, dim=0)
         pic = torch.unsqueeze(pic, dim=0)
+        # 輸出是 4 channel(RGB + 變化量)
         pic = torch.concat([i_pic, pic], dim=0)
         return pic
 
@@ -178,10 +183,14 @@ class AppendColorDiff121abs1ch:
 
 
 class AppendDataAdvance:
+    # 現在 imagenet_example 幾乎都 call 這個，因為現在做法是將圖片 tensor 的 channel 擴增，進到模型再 split 給各 backbone
+    # AppendDataAdvance 可以根據使用的 backbone 數量動態調整要擴增多少 channel
     def __init__(self):
         self.advance_class = []
         for advance in configure.data_advance:
             if advance == 'none':
+                # 因為 imagenet_example 在影像 crop 周圍保留一圈像素方便 conv 時不需 padding
+                # 所以沒有 conv 也要移除周圍的一圈 pixel
                 self.advance_class.append(transforms.CenterCrop((configure.train_crop_h, configure.train_crop_w)))
             elif advance == 'color_diff_121_abs_3ch':
                 self.advance_class.append(ColorDiff121abs3ch())
@@ -201,6 +210,7 @@ class AppendDataAdvance:
         return f"{self.__class__.__name__}()"
 
 
+# 負責 RGB swap
 class ChannelSwap:
     def __init__(self, order=None) -> None:
         if order is not None:
@@ -217,6 +227,7 @@ class ChannelSwap:
 
 
 if __name__ == '__main__':
+    # 用來測試上面 class 行為正常
     image = cv2.imread('E:/Dataset/AWA2/img/none/train/antelope/antelope_10002.jpg')
     # image = np.concatenate((np.zeros((3, 3, 1))+1, np.zeros((3, 3, 1))+2, np.zeros((3, 3, 1))+3,
     #                         np.zeros((3, 3, 1))+4, np.zeros((3, 3, 1))+5, np.zeros((3, 3, 1))+6), axis=-1)
