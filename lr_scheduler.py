@@ -21,6 +21,7 @@ class VerboseToLogReduceLROnPlateau(ReduceLROnPlateau):
                                                             cooldown=cooldown, min_lr=min_lr, eps=eps, verbose=verbose)
         self.log_rec = log_rec
 
+    # 加入 log 功能
     def _reduce_lr(self, epoch):
         for i, param_group in enumerate(self.optimizer.param_groups):
             old_lr = float(param_group['lr'])

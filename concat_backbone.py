@@ -132,17 +132,6 @@ class ConcatResNet(nn.Module):
             feature_pair_list.append((feature[pair['model'][0]][..., pair['start'][0]:pair['end'][0]+1],
                                       feature[pair['model'][1]][..., pair['start'][1]:pair['end'][1]+1]))
         return predict, feature_pair_list
-        # if configure.ina_type == 'full':
-        #     return x, x1, x2
-        # elif configure.ina_type == 'half':
-        #     if x1.size(1) != x2.size(1) * 2:
-        #         raise RuntimeError
-        #     split_x1 = torch.split(x1, [x2.size(1), x2.size(1)], dim=1)[0]
-        #     return x, split_x1, x2
-        # elif configure.ina_type == 'fc_only':
-        #     return x, x1, x2
-        # else:
-        #     raise RuntimeError
 
     # 原先用來在 debug 模式下確認 backbone 有無 fix, channel 是否符合預期等
     def ck_fc(self):

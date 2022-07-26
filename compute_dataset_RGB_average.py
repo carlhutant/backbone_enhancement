@@ -31,8 +31,9 @@ for d in directory:
         image = cv2.imread(str(Path(flies_root).joinpath(file)))
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         image = np.array(image, dtype=float)
-        # height, width, _ = array.shape
 
+        # 計算每個pixel的數量與數值加總，速度太慢改成先用每張圖的平均
+        # height, width, _ = array.shape
         # for x in range(width):
         #     for y in range(height):
         #         for color in range(configure.channel):
@@ -54,4 +55,3 @@ total_mean = total_mean_sum/image_count
 total_std = total_std_sum/image_count
 print(total_mean)
 print(total_std)
-a = 0

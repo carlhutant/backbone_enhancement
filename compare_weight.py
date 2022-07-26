@@ -36,32 +36,31 @@ from tqdm import trange
 
 # print(model)
 # create check weight model 用來確認 concat 的 backbone 有被 fix
+# 使用自行修改過的 resnet.py 來建立 model
+# 建立兩個要比較 weight 的 model
 model1 = ResNet.resnet50(0)
 model2 = ResNet.resnet50(0)
-# print(ck_model)
+# 為兩個 model load weight
 checkpoint1 = torch.load('E:/Model/torch/office-31/amazon/none/batch16/resnet50pretrain_fix_backbone/SGD/ReduceLROnPlateau/model_best.pth.tar')
 checkpoint2 = torch.load('E:/Model/torch/office-31/amazon/none/batch16/resnet50fix_backbone_tolayer4/SGD/ReduceLROnPlateau/model_best.pth.tar')
 model1.load_state_dict(checkpoint1['state_dict'])
 model2.load_state_dict(checkpoint2['state_dict'])
-ck_model1 = model1
-ck_model2 = model2
 # ck_model1 = torch.nn.Sequential(*list(model1.children())[:-1])
 # ck_model2 = torch.nn.Sequential(*list(model1.children())[:-1])
 
+# get all layer names and weights
 names1 = []
 parameters1 = []
-for name, param in ck_model1.layer1.named_parameters():
+for name, param in model1.layer1.named_parameters():
     names1.append(name)
     parameters1.append(param.cpu().detach().numpy())
 
 names2 = []
 parameters2 = []
-for name, param in ck_model2.layer1.named_parameters():
+for name, param in model2.layer1.named_parameters():
     names2.append(name)
     parameters2.append(param.cpu().detach().numpy())
 
-# print(model1)
-# get all layer names and weights
 if len(names1) != len(names2):
     raise RuntimeError
 if len(parameters1) != len(parameters2):
