@@ -190,7 +190,7 @@ def main_worker(ngpus_per_node, log_rec):
                     # Map model to be loaded to specified single gpu.
                     loc = 'cuda:{}'.format(configure.specified_GPU_ID)
                     checkpoint = torch.load(configure.resume_ckpt_path[0], map_location=loc)
-                configure.start_epoch = checkpoint['epoch']
+                configure.start_epoch = checkpoint['epoch']+1
                 best_acc1 = checkpoint['best_acc1']
                 if configure.specified_GPU_ID is not None:
                     # best_acc1 may be from a checkpoint from a different GPU
