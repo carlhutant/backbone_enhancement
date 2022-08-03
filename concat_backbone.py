@@ -75,7 +75,7 @@ class ConcatResNet(nn.Module):
                     # 那就需要再讀取 optimizer, scheduler, epoch, best_acc1 等等
                     optimizer.load_state_dict(checkpoint['optimizer'])
                     scheduler.load_state_dict(checkpoint['scheduler'])
-                    configure.start_epoch = checkpoint['epoch']
+                    configure.start_epoch = checkpoint['epoch']+1
                     best_acc1 = checkpoint['best_acc1']
                     if configure.specified_GPU_ID is not None:
                         # best_acc1 may be from a checkpoint from a different GPU
