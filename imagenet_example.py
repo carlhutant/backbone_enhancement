@@ -32,6 +32,7 @@ import configure
 import log_record
 import data_argumentation
 import ResNet
+import DenseNet
 import concat_backbone
 import finetune
 from lr_scheduler import VerboseToLogReduceLROnPlateau
@@ -132,6 +133,9 @@ def main_worker(ngpus_per_node, log_rec):
                 model = ResNet.resnet101(model_id=0)
             else:
                 raise RuntimeError
+        elif 'densenet' in configure.model[0]:
+            if configure.model[0] == 'densenet121':
+                model = DenseNet.densenet121(model_id=0)
         else:
             # 目前只支援 resnet50, 101
             raise RuntimeError
@@ -153,7 +157,7 @@ def main_worker(ngpus_per_node, log_rec):
 
     # print(model)
     # for name, param in model.named_parameters():
-    #     a = 0
+    # a = 0
 
     # define loss function (criterion), optimizer, and learning rate scheduler
     criterion = {'CrossEntropy': nn.CrossEntropyLoss().cuda(configure.specified_GPU_ID),
