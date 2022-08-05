@@ -155,6 +155,7 @@ class DenseNet(nn.Module):
 
     def __init__(
         self,
+        model_id: int,
         growth_rate: int = 32,
         block_config: Tuple[int, int, int, int] = (6, 12, 24, 16),
         num_init_features: int = 64,
@@ -171,7 +172,7 @@ class DenseNet(nn.Module):
         self.features = nn.Sequential(
             OrderedDict(
                 [
-                    ("conv0", nn.Conv2d(3, num_init_features, kernel_size=7, stride=2, padding=3, bias=False)),
+                    ("conv0", nn.Conv2d(configure.input_channel_list[model_id], num_init_features, kernel_size=7, stride=2, padding=3, bias=False)),
                     ("norm0", nn.BatchNorm2d(num_init_features)),
                     ("relu0", nn.ReLU(inplace=True)),
                     ("pool0", nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
@@ -259,12 +260,12 @@ def _densenet(
     else:
         out_feature = 1024
     if pretrained:
-        model = DenseNet(growth_rate, block_config, num_init_features, **kwargs)
+        model = DenseNet(model_id, growth_rate, block_config, num_init_features, **kwargs)
         state_dict = load_state_dict_from_url(model_urls[arch], progress=progress)
         model.load_state_dict(state_dict)
         model.fc = nn.Linear(out_feature, configure.class_num)
     else:
-        model = DenseNet(growth_rate, block_config, num_init_features, num_classes=configure.class_num,  **kwargs)
+        model = DenseNet(model_id, growth_rate, block_config, num_init_features, num_classes=configure.class_num,  **kwargs)
 
     return model
 
