@@ -252,7 +252,7 @@ def _densenet(
     model_id: int,
     **kwargs: Any,
 ) -> DenseNet:
-    model = DenseNet(growth_rate, block_config, num_init_features, **kwargs)
+    model = DenseNet(model_id, growth_rate, block_config, num_init_features, **kwargs)
     if pretrained:
         _load_state_dict(model, model_urls[arch], progress)
     if 'growth_rate16' in configure.model_mode[model_id]:
