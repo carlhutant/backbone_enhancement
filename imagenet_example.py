@@ -79,7 +79,7 @@ def main():
 
     # 測試模型在各 domain 的效果
     if configure.evaluate_all_domain:
-        if configure.dataset == ['AWA2', 'imagenet', 'inat2021']:
+        if configure.dataset in ['AWA2', 'imagenet', 'inat2021']:
             order_list = [[0, 1, 2], [0, 2, 1], [1, 0, 2],
                           [1, 2, 0], [2, 0, 1], [2, 1, 0]]
             for order in order_list:
