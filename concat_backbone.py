@@ -3,6 +3,7 @@ from pyexpat import model
 import torch
 import torch.nn as nn
 import ResNet
+import DenseNet
 import configure
 
 from torch import Tensor
@@ -22,6 +23,8 @@ class ConcatResNet(nn.Module):
                 self.model_list.append(ResNet.resnet50(i))
             elif configure.model[i] == 'resnet101':
                 self.model_list.append(ResNet.resnet101(i))
+            elif configure.model[i] == 'densenet121':
+                self.model_list.append(DenseNet.densenet121(i))
             else:
                 raise RuntimeError
             # 像 INA 在訓練 target backbone 時會 fix
