@@ -166,6 +166,7 @@ class DenseNet(nn.Module):
     ) -> None:
 
         super().__init__()
+        self.model_id = model_id
         # _log_api_usage_once(self)
 
         # First convolution
